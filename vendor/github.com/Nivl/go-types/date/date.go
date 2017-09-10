@@ -2,9 +2,12 @@ package date
 
 import (
 	"database/sql/driver"
+	"errors"
 	"strings"
 	"time"
 )
+
+var ErrMsgInvalidFormat = "invalid format"
 
 // DATE is a time.Time layout for the a date (no time)
 const DATE = "2006-01-02"
@@ -67,7 +70,10 @@ func (t *Date) ScanString(date string) error {
 
 	var err error
 	t.Time, err = time.Parse(DATE, date)
-	return err
+	if err != nil {
+		return errors.New(ErrMsgInvalidFormat)
+	}
+	return nil
 }
 
 // MarshalJSON implements the json.Marshaler interface

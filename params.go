@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Nivl/go-params/perror"
 	"github.com/Nivl/go-params/formfile"
+	"github.com/Nivl/go-params/perror"
 )
 
 // Params is a struct used to parse and extract params from an other struct
@@ -76,9 +76,9 @@ func (p *Params) parseRecursive(paramList reflect.Value, sources map[string]url.
 		}
 
 		param := &Param{
-			value: &value,
-			info:  &info,
-			tags:  &tags,
+			Value: &value,
+			Info:  &info,
+			Tags:  &tags,
 		}
 
 		// the "file" source is a special case as it's not part of the sources object
