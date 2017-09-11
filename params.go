@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Nivl/go-params/perror"
 	"github.com/Nivl/go-params/formfile"
+	"github.com/Nivl/go-params/perror"
 )
 
 // Params is a struct used to parse and extract params from an other struct
@@ -51,7 +51,7 @@ func (p *Params) parseRecursive(paramList reflect.Value, sources map[string]url.
 
 		// We make sure we can update the value of field
 		if !value.CanSet() {
-			return fmt.Errorf("field [%s] could not be set", info.Name)
+			return fmt.Errorf("field %s could not be set", info.Name)
 		}
 
 		// Handle embedded struct
@@ -59,7 +59,10 @@ func (p *Params) parseRecursive(paramList reflect.Value, sources map[string]url.
 			p.parseRecursive(value, sources, fileHolder)
 
 			// If there's a custom validator we'll use it
-			if validator, ok := value.Interface().(CustomValidation); ok {
+			// Here we vall Addr() to make sure we get a pointer to the
+			// struct. If we don't use a pointer and the IsValid() method
+			// uses a pointer, the conversion will fail
+			if validator, ok := value.Addr().Interface().(CustomValidation); ok {
 				isValid, field, err := validator.IsValid()
 				if !isValid {
 					return perror.New(field, err.Error())
@@ -72,13 +75,13 @@ func (p *Params) parseRecursive(paramList reflect.Value, sources map[string]url.
 		// We control the source of the param. If nothing is provided, we take from the URL
 		paramLocation := strings.ToLower(tags.Get("from"))
 		if paramLocation == "" {
-			paramLocation = "url"
+			return fmt.Errorf("no source set for field %s", info.Name)
 		}
 
 		param := &Param{
-			value: &value,
-			info:  &info,
-			tags:  &tags,
+			Value: &value,
+			Info:  &info,
+			Tags:  &tags,
 		}
 
 		// the "file" source is a special case as it's not part of the sources object
@@ -89,7 +92,7 @@ func (p *Params) parseRecursive(paramList reflect.Value, sources map[string]url.
 		} else {
 			source, found := sources[paramLocation]
 			if !found {
-				return fmt.Errorf("source [%s] for field [%s] does not exists", paramLocation, info.Name)
+				return fmt.Errorf("source %s for field %s does not exist", paramLocation, info.Name)
 			}
 
 			if err := param.SetValue(source); err != nil {
@@ -139,6 +142,9 @@ func (p *Params) extractRecursive(paramList reflect.Value, sources map[string]ur
 				continue
 			}
 			fieldName = jsonOpts[0]
+		}
+		if fieldName == "" {
+			fieldName = info.Name
 		}
 
 		// Handle embedded struct

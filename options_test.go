@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Nivl/go-types/filetype"
+
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -334,11 +336,18 @@ func TestValidateFileContent(t *testing.T) {
 			params.ErrMsgInvalidImage,
 		},
 		{
-			"validate an invalid image",
+			"validate an invalid image without checking the type",
 			``,
 			`invalid_magic.png`,
 			"application/octet-stream",
 			"",
+		},
+		{
+			"validate an invalid image and check the type",
+			`params:"image"`,
+			`invalid_magic.png`,
+			"",
+			filetype.ErrMsgUnsuportedImageFormat,
 		},
 	}
 

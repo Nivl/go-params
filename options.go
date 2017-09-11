@@ -170,6 +170,9 @@ func (opts *Options) ValidateFileContent(file io.ReadSeeker) (string, error) {
 
 	valid, mime, err := filetype.IsImage(file)
 	if err != nil {
+		if err.Error() == filetype.ErrMsgUnsuportedImageFormat {
+			return "", perror.New(opts.Name, err.Error())
+		}
 		return "", err
 	}
 	if !valid {

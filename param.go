@@ -14,29 +14,15 @@ import (
 
 // Param represents a struct param
 type Param struct {
-	value  *reflect.Value
-	info   *reflect.StructField
-	tags   *reflect.StructTag
-	source url.Values
-}
-
-// NewParamFromStructValue creates a param using a struct value
-func NewParamFromStructValue(paramList *reflect.Value, paramPos int) *Param {
-	value := paramList.Field(paramPos)
-	info := paramList.Type().Field(paramPos)
-	tags := info.Tag
-
-	return &Param{
-		value: &value,
-		info:  &info,
-		tags:  &tags,
-	}
+	Value *reflect.Value
+	Info  *reflect.StructField
+	Tags  *reflect.StructTag
 }
 
 // SetFile sets the value of the param using the provided source to find the file
 func (p *Param) SetFile(source formfile.FileHolder) error {
 	// We parse the tag to get the options
-	opts := NewOptions(p.tags)
+	opts := NewOptions(p.Tags)
 
 	// The tag needs to be ignored
 	if opts.Ignore {
@@ -44,7 +30,7 @@ func (p *Param) SetFile(source formfile.FileHolder) error {
 	}
 
 	if opts.Name == "" {
-		opts.Name = p.info.Name
+		opts.Name = p.Info.Name
 	}
 
 	file, header, err := source.FormFile(opts.Name)
@@ -64,8 +50,8 @@ func (p *Param) SetFile(source formfile.FileHolder) error {
 		File:   file,
 		Header: header,
 	}
-	if p.info.Type.String() != "*formfile.FormFile" {
-		return fmt.Errorf("the only accepted type for a file is *formfile.FormFile, got %s", p.info.Type)
+	if p.Info.Type.String() != "*formfile.FormFile" {
+		return fmt.Errorf("the only accepted type for a file is *formfile.FormFile, got %s", p.Info.Type)
 	}
 
 	ff.Mime, err = opts.ValidateFileContent(ff.File)
@@ -73,15 +59,15 @@ func (p *Param) SetFile(source formfile.FileHolder) error {
 		return err
 	}
 
-	p.value.Set(reflect.ValueOf(ff))
+	p.Value.Set(reflect.ValueOf(ff))
 	return nil
 }
 
 // SetValue sets the value of the param using the provided source
 func (p *Param) SetValue(source url.Values) error {
 	// We parse the tag to get the options
-	opts := NewOptions(p.tags)
-	defaultValue := p.tags.Get("default")
+	opts := NewOptions(p.Tags)
+	defaultValue := p.Tags.Get("default")
 
 	// The tag needs to be ignored
 	if opts.Ignore {
@@ -89,7 +75,7 @@ func (p *Param) SetValue(source url.Values) error {
 	}
 
 	if opts.Name == "" {
-		opts.Name = p.info.Name
+		opts.Name = p.Info.Name
 	}
 
 	value := opts.ApplyTransformations(source.Get(opts.Name))
@@ -104,12 +90,12 @@ func (p *Param) SetValue(source url.Values) error {
 
 	// We now set the value in the struct
 	if valueProvided || value != "" {
-		if p.value.Kind() == reflect.Ptr {
-			val := reflect.New(p.value.Type().Elem())
-			p.value.Set(val)
+		if p.Value.Kind() == reflect.Ptr {
+			val := reflect.New(p.Value.Type().Elem())
+			p.Value.Set(val)
 		}
 
-		field := reflect.Indirect(*p.value)
+		field := reflect.Indirect(*p.Value)
 		switch field.Kind() {
 		case reflect.Bool:
 			v, err := strconv.ParseBool(value)
@@ -126,7 +112,7 @@ func (p *Param) SetValue(source url.Values) error {
 			}
 			field.SetInt(v)
 		case reflect.Struct:
-			if scanner, ok := p.value.Interface().(Scanner); ok {
+			if scanner, ok := p.Value.Interface().(Scanner); ok {
 				if err := scanner.ScanString(value); err != nil {
 					return perror.New(opts.Name, err.Error())
 				}

@@ -5,7 +5,7 @@
   branch = "master"
   name = "github.com/Nivl/go-types"
   packages = ["date","filetype","ptrs","slices","strngs"]
-  revision = "8f7e511d896ebfa42712aefb378036b63d036e4d"
+  revision = "d7885e3ee74696687bb44c738b2a117604b298e9"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
