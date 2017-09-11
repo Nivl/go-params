@@ -31,7 +31,26 @@ func (p *StructWithValidator) IsValid() (isValid bool, fieldName string, err err
 	return false, "true_to_fail", errors.New("cannot be set to true")
 }
 
-func TestValidStruct(t *testing.T) {
+func TestParamsParse(t *testing.T) {
+	t.Run("valid struct", subTestValidStruct)
+	t.Run("invalid struct", subTestInvalidStruct)
+	t.Run("field with no source", subTestFieldWithNoSource)
+	t.Run("field with unexisting source", subTestFieldWithUnexistingSource)
+	t.Run("field not exported", subTestFieldNotExported)
+	t.Run("embedded struct", subTestEmbeddedStruct)
+	t.Run("embedded struct with custon validation", subTestEmbeddedStructWithCustomValidation)
+	t.Run("custon validation", subTestCustomValidation)
+	t.Run("file handling", subTestFileUpload)
+}
+
+func TestParamsExtract(t *testing.T) {
+	t.Run("extract", subTestExtraction)
+	t.Run("nil value", subTestExtractNil)
+}
+
+func subTestValidStruct(t *testing.T) {
+	t.Parallel()
+
 	type strct struct {
 		ID            string  `from:"url" json:"id" params:"uuid,required"`
 		Number        int     `from:"query" json:"number"`
@@ -77,7 +96,9 @@ func TestValidStruct(t *testing.T) {
 	assert.Equal(t, 42, s.Default)
 }
 
-func TestInvalidStruct(t *testing.T) {
+func subTestInvalidStruct(t *testing.T) {
+	t.Parallel()
+
 	type strct struct {
 		ID            string  `from:"url" json:"id" params:"uuid,required"`
 		Number        int     `from:"query" json:"number"`
@@ -98,7 +119,9 @@ func TestInvalidStruct(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestStructFieldWithNoSource(t *testing.T) {
+func subTestFieldWithNoSource(t *testing.T) {
+	t.Parallel()
+
 	type strct struct {
 		ID string `json:"id" params:"uuid"`
 	}
@@ -109,7 +132,9 @@ func TestStructFieldWithNoSource(t *testing.T) {
 	assert.Equal(t, "no source set for field ID", err.Error(), "Parse() failed with an unexpected error")
 }
 
-func TestStructFieldWithUnexistingSource(t *testing.T) {
+func subTestFieldWithUnexistingSource(t *testing.T) {
+	t.Parallel()
+
 	type strct struct {
 		ID string `from:"somewhere" json:"id" params:"uuid"`
 	}
@@ -120,7 +145,9 @@ func TestStructFieldWithUnexistingSource(t *testing.T) {
 	assert.Equal(t, "source somewhere for field ID does not exist", err.Error(), "Parse() failed with an unexpected error")
 }
 
-func TestStructFieldNotExported(t *testing.T) {
+func subTestFieldNotExported(t *testing.T) {
+	t.Parallel()
+
 	type strct struct {
 		// will fail cause not exported
 		id string `from:"url" json:"id" params:"uuid"`
@@ -132,7 +159,9 @@ func TestStructFieldNotExported(t *testing.T) {
 	assert.Equal(t, "field id could not be set", err.Error(), "Parse() failed with an unexpected error")
 }
 
-func TestEmbeddedStruct(t *testing.T) {
+func subTestEmbeddedStruct(t *testing.T) {
+	t.Parallel()
+
 	type Paginator struct {
 		Page    *int `from:"query" json:"page" default:"1"`
 		PerPage *int `from:"query" json:"per_page"`
@@ -167,7 +196,9 @@ func TestEmbeddedStruct(t *testing.T) {
 	assert.Nil(t, s.PerPage)
 }
 
-func TestEmbeddedStructWithCustomValidation(t *testing.T) {
+func subTestEmbeddedStructWithCustomValidation(t *testing.T) {
+	t.Parallel()
+
 	// sugar
 	shouldFail := true
 
@@ -217,7 +248,9 @@ func TestEmbeddedStructWithCustomValidation(t *testing.T) {
 	}
 }
 
-func TestCustomValidation(t *testing.T) {
+func subTestCustomValidation(t *testing.T) {
+	t.Parallel()
+
 	// sugar
 	shouldFail := true
 
@@ -263,7 +296,9 @@ func TestCustomValidation(t *testing.T) {
 	}
 }
 
-func TestExtraction(t *testing.T) {
+func subTestExtraction(t *testing.T) {
+	t.Parallel()
+
 	cwd, _ := os.Getwd()
 
 	s := struct {
@@ -331,7 +366,9 @@ func TestExtraction(t *testing.T) {
 	assert.True(t, s.Stringer.Equal(d), "The date changed from %s to %s", s.Stringer, d)
 }
 
-func TestExtractNil(t *testing.T) {
+func subTestExtractNil(t *testing.T) {
+	t.Parallel()
+
 	p := params.New(nil)
 	data, files := p.Extract()
 	assert.Equal(t, 0, len(files))
@@ -341,7 +378,7 @@ func TestExtractNil(t *testing.T) {
 	}
 }
 
-func TestFileUpload(t *testing.T) {
+func subTestFileUpload(t *testing.T) {
 	t.Parallel()
 
 	type strct struct {
