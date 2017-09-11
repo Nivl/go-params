@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+// ErrMsgInvalidFormat reprensents the error message returned when an invalid
+// update format is provided
 var ErrMsgInvalidFormat = "invalid format"
 
 // DATE is a time.Time layout for the a date (no time)

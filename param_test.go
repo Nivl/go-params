@@ -1,15 +1,26 @@
+//go:generate mockgen -destination mock_multipartfile_test.go -package params_test mime/multipart File
+
 package params_test
 
 import (
+	"errors"
+	"net/http"
 	"net/url"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 
+	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	params "github.com/Nivl/go-params"
+	"github.com/Nivl/go-params/formfile"
+	"github.com/Nivl/go-params/formfile/mockformfile"
+	"github.com/Nivl/go-params/formfile/testformfile"
 	"github.com/Nivl/go-params/perror"
 	"github.com/Nivl/go-types/date"
+	"github.com/Nivl/go-types/filetype"
 	"github.com/Nivl/go-types/ptrs"
 )
 
@@ -33,6 +44,258 @@ func TestSetValue(t *testing.T) {
 	})
 
 	t.Run("scannable struct", subTestsSetValueScannableStruct)
+}
+
+func TestSetFile(t *testing.T) {
+	t.Run("any type of files, required", subTestSetFileParamRequired)
+	t.Run("only valid images", subTestSetFileParamValidImage)
+	t.Run("ignore", subTestSetFileIgnore)
+	t.Run("no name", subTestSetFileNoName)
+	t.Run("wrong struct", subTestSetFileWrongStruct)
+	t.Run("formFile returned an unknown error", subTestSetFileFormFileFail)
+}
+
+func subTestSetFileFormFileFail(t *testing.T) {
+	t.Parallel()
+
+	type strct struct {
+		File string `from:"file"`
+	}
+
+	// Init the mocks
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// Set the expectations
+	fileHolder := mockformfile.NewMockFileHolder(mockCtrl)
+	fileHolder.EXPECT().FormFile("File").Return(nil, nil, errors.New("unexpected error"))
+
+	// Call the function to test
+	paramList := reflect.ValueOf(&strct{}).Elem()
+	p := newParamFromStructValue(&paramList, 0)
+	err := p.SetFile(fileHolder)
+	assert.Error(t, err, "Expected SetFile not to return an error")
+}
+
+func subTestSetFileWrongStruct(t *testing.T) {
+	t.Parallel()
+
+	type strct struct {
+		File string `from:"file"`
+	}
+
+	// Init the mocks
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// create the multipart data
+	cwd, _ := os.Getwd()
+	imageHeader, imageFile := testformfile.NewMultipartData(t, cwd, "black_pixel.png")
+	defer imageFile.Close()
+
+	// Set the expectations
+	fileHolder := mockformfile.NewMockFileHolder(mockCtrl)
+	fileHolder.EXPECT().FormFile("File").Return(imageFile, imageHeader, nil)
+
+	// Call the function to test
+	paramList := reflect.ValueOf(&strct{}).Elem()
+	p := newParamFromStructValue(&paramList, 0)
+	err := p.SetFile(fileHolder)
+	assert.Error(t, err, "Expected SetFile not to return an error")
+	assert.True(t, strings.Contains(err.Error(), "the only accepted type for a file is"), "SetFile() failed with an unexpected error")
+}
+
+func subTestSetFileNoName(t *testing.T) {
+	t.Parallel()
+
+	type strct struct {
+		File *formfile.FormFile `from:"file"`
+	}
+
+	// Init the mocks
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// create the multipart data
+	cwd, _ := os.Getwd()
+	imageHeader, imageFile := testformfile.NewMultipartData(t, cwd, "black_pixel.png")
+	defer imageFile.Close()
+
+	// Set the expectations
+	fileHolder := mockformfile.NewMockFileHolder(mockCtrl)
+	fileHolder.EXPECT().FormFile("File").Return(imageFile, imageHeader, nil)
+
+	// Call the function to test
+	paramList := reflect.ValueOf(&strct{}).Elem()
+	p := newParamFromStructValue(&paramList, 0)
+	err := p.SetFile(fileHolder)
+	assert.NoError(t, err, "Expected SetFile not to return an error")
+}
+
+func subTestSetFileIgnore(t *testing.T) {
+	t.Parallel()
+
+	type strct struct {
+		File *formfile.FormFile `from:"file" json:"-" params:"image"`
+	}
+
+	// init the mocks
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// Set the expectations
+	fileHolder := mockformfile.NewMockFileHolder(mockCtrl)
+
+	// Call the function to test
+	paramList := reflect.ValueOf(&strct{}).Elem()
+	p := newParamFromStructValue(&paramList, 0)
+	err := p.SetFile(fileHolder)
+	assert.NoError(t, err, "SetFile() shuld not have fail")
+}
+
+func subTestSetFileParamValidImage(t *testing.T) {
+	t.Parallel()
+
+	type strct struct {
+		File *formfile.FormFile `from:"file" json:"file" params:"image"`
+	}
+
+	testCases := []struct {
+		description   string
+		s             strct
+		filename      string
+		expectedMime  string
+		expectedError error
+	}{
+		{"Valid PNG", strct{}, "black_pixel.png", "image/png", nil},
+		{
+			"invalid PNG",
+			strct{},
+			"invalid_content.png",
+			"",
+			perror.New("file", params.ErrMsgInvalidImage),
+		},
+		{
+			"Not an image",
+			strct{},
+			"LICENSE",
+			"",
+			perror.New("file", filetype.ErrMsgUnsuportedImageFormat),
+		},
+		{
+			"nil pointer should work as the image is not required",
+			strct{},
+			"",
+			"",
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+
+			// init the mocks
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			// Set the expectations
+			fileHolder := mockformfile.NewMockFileHolder(mockCtrl)
+			formfile := fileHolder.EXPECT().FormFile("file")
+
+			// if tc.filename is empty then we send no file
+			if tc.filename == "" {
+				formfile.Return(nil, nil, http.ErrMissingFile)
+			} else {
+				// create the multipart data
+				cwd, _ := os.Getwd()
+				imageHeader, imageFile := testformfile.NewMultipartData(t, cwd, tc.filename)
+				defer imageFile.Close()
+
+				formfile.Return(imageFile, imageHeader, nil)
+			}
+
+			// Call the function to test
+			paramList := reflect.ValueOf(&tc.s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+			err := p.SetFile(fileHolder)
+
+			// assert
+			if tc.expectedError != nil {
+				assert.Error(t, err, "Expected SetFile to return an error")
+				assert.Equal(t, tc.expectedError, err, "Wrong error returned")
+			} else {
+				assert.NoError(t, err, "Expected SetFile not to return an error")
+
+				if tc.filename != "" {
+					assert.Equal(t, tc.expectedMime, tc.s.File.Mime, "Wrong mime type")
+				}
+			}
+		})
+	}
+}
+
+func subTestSetFileParamRequired(t *testing.T) {
+	t.Parallel()
+
+	type strct struct {
+		File *formfile.FormFile `from:"file" json:"file" params:"required"`
+	}
+
+	testCases := []struct {
+		description string
+		s           strct
+		sendNil     bool
+		shouldFail  bool
+	}{
+		{"Nil pointer should fail", strct{}, true, true},
+		{"Valid value should work", strct{}, false, false},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+
+			// init the mocks
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			// create the multipart data
+			cwd, _ := os.Getwd()
+			licenseHeader, licenseFile := testformfile.NewMultipartData(t, cwd, "LICENSE")
+			defer licenseFile.Close()
+
+			// Expectations
+			fileHolder := mockformfile.NewMockFileHolder(mockCtrl)
+			onFormFile := fileHolder.EXPECT().FormFile("file")
+
+			if tc.sendNil {
+				onFormFile.Return(nil, nil, http.ErrMissingFile)
+			} else {
+				onFormFile.Return(licenseFile, licenseHeader, nil)
+			}
+
+			paramList := reflect.ValueOf(&tc.s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+
+			err := p.SetFile(fileHolder)
+
+			if tc.sendNil {
+				assert.Error(t, err, "Expected SetFile to return an error")
+
+			} else {
+				assert.NoError(t, err, "Expected SetFile not to return an error")
+
+				if assert.NotNil(t, tc.s.File, "Expected File NOT to be nil") {
+					assert.NotNil(t, tc.s.File.File, "Expected File.File NOT to be nil")
+					assert.NotNil(t, tc.s.File.Header, "Expected File.Header NOT to be nil")
+					assert.Equal(t, licenseHeader.Filename, tc.s.File.Header.Filename)
+				}
+			}
+		})
+	}
 }
 
 func subTestsSetValueIntPointer(t *testing.T) {
