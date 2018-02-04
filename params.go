@@ -108,9 +108,6 @@ func (p *Params) parseRecursive(paramList reflect.Value, sources map[string]url.
 // as a map of url.Values
 func (p *Params) Extract() (map[string]url.Values, map[string]*formfile.FormFile) {
 	sources := map[string]url.Values{}
-	sources["url"] = url.Values{}
-	sources["form"] = url.Values{}
-	sources["query"] = url.Values{}
 	files := map[string]*formfile.FormFile{}
 
 	if p.data == nil {
@@ -155,6 +152,9 @@ func (p *Params) extractRecursive(paramList reflect.Value, sources map[string]ur
 
 		// We get the source type (url, query, form, ...) and add the value
 		sourceType := strings.ToLower(tags.Get("from"))
+		if sourceType == "" {
+			sourceType = "unknown"
+		}
 
 		if _, found := sources[sourceType]; !found {
 			sources[sourceType] = url.Values{}

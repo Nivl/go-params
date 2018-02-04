@@ -314,6 +314,7 @@ func subTestExtraction(t *testing.T) {
 		Stringer      *date.Date         `from:"form" json:"stringer"`
 		Ignored       int                `from:"form" json:"-"`
 		NoName        string             `from:"form"`
+		Unknown       string             `json:"unknown"`
 	}{
 		StringValue:         "String value",
 		Number:              42,
@@ -326,6 +327,7 @@ func subTestExtraction(t *testing.T) {
 		Stringer:            date.Today(),
 		Ignored:             24,
 		NoName:              "not named",
+		Unknown:             "unknown from",
 		StructWithValidator: StructWithValidator{String: "embeded"},
 	}
 
@@ -353,7 +355,7 @@ func subTestExtraction(t *testing.T) {
 
 	// Check form data
 	formValue, found := sources["form"]
-	require.True(t, found, "for data should be present")
+	require.True(t, found, "form data should be present")
 	assert.Equal(t, strconv.FormatBool(s.Bool), formValue.Get("bool"))
 	assert.Equal(t, strconv.FormatBool(*s.PointerBool), formValue.Get("pointer_bool"))
 	assert.Equal(t, *s.PointerString, formValue.Get("pointer_string"))
@@ -364,6 +366,11 @@ func subTestExtraction(t *testing.T) {
 	d, err := date.New(formValue.Get("stringer"))
 	assert.NoError(t, err, "db.NewDate() should have succeed")
 	assert.True(t, s.Stringer.Equal(d), "The date changed from %s to %s", s.Stringer, d)
+
+	// Check form data
+	unknownValue, found := sources["unknown"]
+	require.True(t, found, "unknown data should be present")
+	assert.Equal(t, s.Unknown, unknownValue.Get("unknown"))
 }
 
 func subTestExtractNil(t *testing.T) {
