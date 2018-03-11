@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Nivl/go-types/ptrs"
+
 	"github.com/Nivl/go-params/perror"
 	"github.com/Nivl/go-types/filetype"
 	"github.com/Nivl/go-types/slices"
@@ -61,17 +63,26 @@ type Options struct {
 	// AuthorizedValues represents the list of authorized value for this param
 	// enum:"and,or"
 	AuthorizedValues []string
+
+	// MinInt represents the minimum value accepted for an integer
+	// min_int:"1"
+	MinInt *int
+
+	// MaxInt represents the maximum value accepted for an integer
+	// max_int:"255"
+	MaxInt *int
 }
 
 // NewOptions returns a ParamOptions from a StructTag
-func NewOptions(tags *reflect.StructTag) *Options {
+func NewOptions(tags *reflect.StructTag) (*Options, error) {
 	output := &Options{}
+	var err error
 
 	// We use the json tag to get the field name
 	jsonOpts := strings.Split(tags.Get("json"), ",")
 	if len(jsonOpts) > 0 {
 		if jsonOpts[0] == "-" {
-			return &Options{Ignore: true}
+			return &Options{Ignore: true}, nil
 		}
 
 		output.Name = jsonOpts[0]
@@ -80,15 +91,38 @@ func NewOptions(tags *reflect.StructTag) *Options {
 	// We use the maxlen tag to get the max length of a the value
 	maxlen := tags.Get("maxlen")
 	if len(maxlen) > 0 {
-		// we silently fail on errors
-		output.MaxLen, _ = strconv.Atoi(maxlen)
+		if output.MaxLen, err = strconv.Atoi(maxlen); err != nil {
+			return nil, perror.New(output.Name, ErrMsgInvalidInteger)
+		}
 	}
 
-	// We use the enu, tag to get all the authorized value a param can have
+	// We use the enum tag to get all the authorized value a param can have
 	enum := tags.Get("enum")
 	if len(enum) > 0 {
 		// we silently fail on errors
 		output.AuthorizedValues = strings.Split(enum, ",")
+	}
+
+	// We use the max_int tag to get the max value accepted for an int
+	maxInt := tags.Get("max_int")
+	if len(maxInt) > 0 {
+		// we silently fail on errors
+		v, err := strconv.Atoi(maxInt)
+		if err != nil {
+			return nil, perror.New(output.Name, ErrMsgInvalidInteger)
+		}
+		output.MaxInt = ptrs.NewInt(v)
+	}
+
+	// We use the min_int tag to get the min value accepted for an int
+	minInt := tags.Get("min_int")
+	if len(minInt) > 0 {
+		// we silently fail on errors
+		v, err := strconv.Atoi(minInt)
+		if err != nil {
+			return nil, perror.New(output.Name, ErrMsgInvalidInteger)
+		}
+		output.MinInt = ptrs.NewInt(v)
 	}
 
 	// We parse the params
@@ -112,8 +146,7 @@ func NewOptions(tags *reflect.StructTag) *Options {
 			output.ValidateImage = true
 		}
 	}
-
-	return output
+	return output, nil
 }
 
 // Validate checks the given value passes the options set
@@ -147,6 +180,26 @@ func (opts *Options) Validate(value string, wasProvided bool) error {
 			found, _ := slices.InSlice(opts.AuthorizedValues, value)
 			if !found {
 				return perror.New(opts.Name, ErrMsgEnum)
+			}
+		}
+
+		// Check the int values
+		if opts.MinInt != nil || opts.MaxInt != nil {
+			asInt, err := strconv.Atoi(value)
+			if err != nil {
+				return perror.New(opts.Name, ErrMsgInvalidInteger)
+			}
+
+			if opts.MinInt != nil {
+				if asInt < *opts.MinInt {
+					return perror.New(opts.Name, ErrMsgIntegerTooSmall)
+				}
+			}
+
+			if opts.MaxInt != nil {
+				if asInt > *opts.MaxInt {
+					return perror.New(opts.Name, ErrMsgIntegerTooBig)
+				}
 			}
 		}
 	}

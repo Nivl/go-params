@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Nivl/go-types/ptrs"
+
 	"github.com/Nivl/go-types/filetype"
 
 	gomock "github.com/golang/mock/gomock"
@@ -111,6 +113,18 @@ func TestNewOptions(t *testing.T) {
 			},
 		},
 		{
+			"Set MaxInt", `max_int:"1"`,
+			&params.Options{
+				MaxInt: ptrs.NewInt(1),
+			},
+		},
+		{
+			"Set MinInt", `min_int:"-1"`,
+			&params.Options{
+				MinInt: ptrs.NewInt(-1),
+			},
+		},
+		{
 			"", `json:"my_var" params:"email,required" maxlen:"30"`,
 			&params.Options{
 				Name:          "my_var",
@@ -130,8 +144,40 @@ func TestNewOptions(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			t.Parallel()
 			tag := reflect.StructTag(tc.tag)
-			output := params.NewOptions(&tag)
+			output, err := params.NewOptions(&tag)
+			require.NoError(t, err, "NewOptions() should not have failed)")
 			assert.Equal(t, tc.expected, output, "NewOptions()returned unexpected data")
+		})
+	}
+}
+
+func TestNewOptionsError(t *testing.T) {
+	testCases := []struct {
+		description string // optional, will use tag if empty
+		tag         string
+	}{
+		{
+			"Set MaxInt", `max_int:"nan"`,
+		},
+		{
+			"Set MinInt", `min_int:"nan"`,
+		},
+		{
+			"Set MaxLen", `maxlen:"nan"`,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		if tc.description == "" {
+			tc.description = tc.tag
+		}
+
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			tag := reflect.StructTag(tc.tag)
+			_, err := params.NewOptions(&tag)
+			require.Error(t, err, "NewOptions() should not have failed)")
 		})
 	}
 }
@@ -252,6 +298,48 @@ func TestValidate(t *testing.T) {
 			wasProvided,
 			perror.New("field_name", params.ErrMsgEnum),
 		},
+		{
+			"min_int with valid data should work",
+			`json:"field_name" min_int:"-1"`,
+			"-1",
+			wasProvided,
+			nil,
+		},
+		{
+			"min_int with invalid type should fail",
+			`json:"field_name" min_int:"-1"`,
+			"nan",
+			wasProvided,
+			perror.New("field_name", params.ErrMsgInvalidInteger),
+		},
+		{
+			"min_int with invalid data should fail",
+			`json:"field_name" min_int:"-1"`,
+			"-2",
+			wasProvided,
+			perror.New("field_name", params.ErrMsgIntegerTooSmall),
+		},
+		{
+			"max_int with valid data should work",
+			`json:"field_name" max_int:"1"`,
+			"1",
+			wasProvided,
+			nil,
+		},
+		{
+			"max_int with invalid type should fail",
+			`json:"field_name" max_int:"1"`,
+			"nan",
+			wasProvided,
+			perror.New("field_name", params.ErrMsgInvalidInteger),
+		},
+		{
+			"max_int with invalid data should fail",
+			`json:"field_name" max_int:"1"`,
+			"2",
+			wasProvided,
+			perror.New("field_name", params.ErrMsgIntegerTooBig),
+		},
 	}
 
 	for _, tc := range testCases {
@@ -259,9 +347,10 @@ func TestValidate(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			t.Parallel()
 			tag := reflect.StructTag(tc.tag)
-			opts := params.NewOptions(&tag)
+			opts, err := params.NewOptions(&tag)
+			require.NoError(t, err, "NewOptions() should not have failed)")
 
-			err := opts.Validate(tc.value, tc.wasProvided)
+			err = opts.Validate(tc.value, tc.wasProvided)
 			if tc.expectedError != nil {
 				assert.Error(t, err, "Validate() should have failed")
 				assert.Equal(t, tc.expectedError, err, "Validate() returned an unexcpected error")
@@ -298,7 +387,8 @@ func TestApplyTransformations(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			t.Parallel()
 			tag := reflect.StructTag(tc.tag)
-			opts := params.NewOptions(&tag)
+			opts, err := params.NewOptions(&tag)
+			require.NoError(t, err, "NewOptions() should not have failed)")
 
 			output := opts.ApplyTransformations(tc.input)
 			assert.Equal(t, tc.output, output, "ApplyTransformations() returned an unexpected output")
@@ -356,7 +446,8 @@ func TestValidateFileContent(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			t.Parallel()
 			tag := reflect.StructTag(tc.tag)
-			opts := params.NewOptions(&tag)
+			opts, err := params.NewOptions(&tag)
+			require.NoError(t, err, "NewOptions() should not have failed)")
 			filepath := path.Join("fixtures", tc.filename)
 			file, err := os.Open(filepath)
 			require.NoError(t, err, "Open() should not have failed)")

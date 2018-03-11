@@ -393,6 +393,20 @@ func subTestsSetValueIntRegular(t *testing.T) {
 			0,
 			perror.New("int", params.ErrMsgInvalidInteger),
 		},
+		{
+			"-1 should fail with min_int of 0",
+			`json:"int" min_int:"0"`,
+			url.Values{"int": []string{"-1"}},
+			0,
+			perror.New("int", params.ErrMsgIntegerTooSmall),
+		},
+		{
+			"1 should fail with max_int of 0",
+			`json:"int" max_int:"0"`,
+			url.Values{"int": []string{"1"}},
+			0,
+			perror.New("int", params.ErrMsgIntegerTooBig),
+		},
 	}
 
 	for _, tc := range testCases {

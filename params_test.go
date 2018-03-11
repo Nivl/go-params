@@ -39,7 +39,7 @@ func TestParamsParse(t *testing.T) {
 	t.Run("field not exported", subTestFieldNotExported)
 	t.Run("embedded struct", subTestEmbeddedStruct)
 	t.Run("embedded struct with custon validation", subTestEmbeddedStructWithCustomValidation)
-	t.Run("custon validation", subTestCustomValidation)
+	t.Run("custom validation", subTestCustomValidation)
 	t.Run("file handling", subTestFileUpload)
 }
 
