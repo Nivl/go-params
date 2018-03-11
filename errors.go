@@ -40,4 +40,12 @@ const (
 	// ErrMsgInvalidInteger represents the error message corresponding to
 	// an invalid integer
 	ErrMsgInvalidInteger = "invalid integer"
+
+	// ErrMsgIntegerTooBig represents the error message corresponding to
+	// an integer being to big
+	ErrMsgIntegerTooBig = "value too high"
+
+	// ErrMsgIntegerTooSmall represents the error message corresponding to
+	// an integer being to small
+	ErrMsgIntegerTooSmall = "value too small"
 )

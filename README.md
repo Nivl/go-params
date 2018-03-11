@@ -48,6 +48,11 @@ if nothing is found in the payload or if the provided value is an empty string.
 You can set a comma separated list of valid values using
 `enum:"value1,value2,value3"`. Empty and nil values are accepted.
 
+## Min/Max values for integers
+
+You can set a min value or a max value for an integer using
+`min_int:"0" max_int:"10"`
+
 ## Maxlen of a string
 
 Use `maxlen:"255"` to make sure the len of a string is not bigger than 255 char. Any invalid values (including `0`) will be ignored

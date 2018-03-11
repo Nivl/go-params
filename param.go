@@ -22,7 +22,10 @@ type Param struct {
 // SetFile sets the value of the param using the provided source to find the file
 func (p *Param) SetFile(source formfile.FileHolder) error {
 	// We parse the tag to get the options
-	opts := NewOptions(p.Tags)
+	opts, err := NewOptions(p.Tags)
+	if err != nil {
+		return err
+	}
 
 	// The tag needs to be ignored
 	if opts.Ignore {
@@ -66,7 +69,10 @@ func (p *Param) SetFile(source formfile.FileHolder) error {
 // SetValue sets the value of the param using the provided source
 func (p *Param) SetValue(source url.Values) error {
 	// We parse the tag to get the options
-	opts := NewOptions(p.Tags)
+	opts, err := NewOptions(p.Tags)
+	if err != nil {
+		return err
+	}
 	defaultValue := p.Tags.Get("default")
 
 	// The tag needs to be ignored
