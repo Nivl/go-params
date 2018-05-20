@@ -143,6 +143,15 @@ func (p *Params) extractRecursive(paramList reflect.Value, sources map[string]ur
 		if fieldName == "" {
 			fieldName = info.Name
 		}
+		// if the field has the omitempty option we want to honor it
+		omitempty := false
+		if len(jsonOpts) > 1 {
+			for _, opt := range jsonOpts {
+				if opt == "omitempty" {
+					omitempty = true
+				}
+			}
+		}
 
 		// Handle embedded struct
 		if reflect.Indirect(value).Kind() == reflect.Struct && info.Anonymous {
@@ -168,13 +177,17 @@ func (p *Params) extractRecursive(paramList reflect.Value, sources map[string]ur
 
 		field := reflect.Indirect(value)
 		valueStr := ""
+		isZeroValue := false
 		switch field.Kind() {
 		case reflect.Bool:
 			valueStr = strconv.FormatBool(field.Bool())
+			isZeroValue = !field.Bool()
 		case reflect.String:
 			valueStr = field.String()
+			isZeroValue = (valueStr == "")
 		case reflect.Int:
 			valueStr = strconv.Itoa(int(field.Int()))
+			isZeroValue = (field.Int() == 0)
 		default:
 			// If we have anything that implements a stringer, then let's use that
 			if s, isStringer := value.Interface().(fmt.Stringer); isStringer {
@@ -182,6 +195,9 @@ func (p *Params) extractRecursive(paramList reflect.Value, sources map[string]ur
 			}
 		}
 
-		sources[sourceType].Set(fieldName, valueStr)
+		// if the omitempty option is set, we wont set any zero value
+		if !omitempty || (omitempty && !isZeroValue) {
+			sources[sourceType].Set(fieldName, valueStr)
+		}
 	}
 }

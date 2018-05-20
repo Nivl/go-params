@@ -41,6 +41,7 @@ func TestParamsParse(t *testing.T) {
 	t.Run("embedded struct with custon validation", subTestEmbeddedStructWithCustomValidation)
 	t.Run("custom validation", subTestCustomValidation)
 	t.Run("file handling", subTestFileUpload)
+	t.Run("file handling", subTestFileUpload)
 }
 
 func TestParamsExtract(t *testing.T) {
@@ -314,6 +315,7 @@ func subTestExtraction(t *testing.T) {
 		Stringer      *date.Date         `from:"form" json:"stringer"`
 		Ignored       int                `from:"form" json:"-"`
 		NoName        string             `from:"form"`
+		OmitEmpty     int                `from:"form" json:"omit,omitempty"`
 		Unknown       string             `json:"unknown"`
 	}{
 		StringValue:         "String value",
@@ -327,6 +329,7 @@ func subTestExtraction(t *testing.T) {
 		Stringer:            date.Today(),
 		Ignored:             24,
 		NoName:              "not named",
+		OmitEmpty:           0,
 		Unknown:             "unknown from",
 		StructWithValidator: StructWithValidator{String: "embeded"},
 	}
@@ -361,13 +364,14 @@ func subTestExtraction(t *testing.T) {
 	assert.Equal(t, *s.PointerString, formValue.Get("pointer_string"))
 	assert.Equal(t, strconv.Itoa(*s.PointerNumber), formValue.Get("pointer_number"))
 	assert.Equal(t, s.NoName, formValue.Get("NoName"))
+	assert.Equal(t, "", formValue.Get("omitempty"))
 	assert.Empty(t, formValue.Get("nil"))
 	assert.Empty(t, formValue.Get("Ignored"))
 	d, err := date.New(formValue.Get("stringer"))
 	assert.NoError(t, err, "db.NewDate() should have succeed")
 	assert.True(t, s.Stringer.Equal(d), "The date changed from %s to %s", s.Stringer, d)
 
-	// Check form data
+	// Check unknown data
 	unknownValue, found := sources["unknown"]
 	require.True(t, found, "unknown data should be present")
 	assert.Equal(t, s.Unknown, unknownValue.Get("unknown"))
