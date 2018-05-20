@@ -107,6 +107,12 @@ func TestNewOptions(t *testing.T) {
 			},
 		},
 		{
+			"Set ValidateSlug", `params:"slug"`,
+			&params.Options{
+				ValidateSlug: true,
+			},
+		},
+		{
 			"Set ValidateImage", `params:"image"`,
 			&params.Options{
 				ValidateImage: true,
@@ -255,6 +261,13 @@ func TestValidate(t *testing.T) {
 			"not-a-uuid",
 			wasProvided,
 			perror.New("field_name", params.ErrMsgInvalidUUID),
+		},
+		{
+			"slug with invalid data",
+			`json:"field_name" params:"slug,required"`,
+			"not a SLUG",
+			wasProvided,
+			perror.New("field_name", params.ErrMsgInvalidSlug),
 		},
 		{
 			"url with valid data",

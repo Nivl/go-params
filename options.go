@@ -36,6 +36,10 @@ type Options struct {
 	// params:"uuid"
 	ValidateUUID bool
 
+	// ValidateSlug means the field should contain a valid slug
+	// params:"slug"
+	ValidateSlug bool
+
 	// ValidateEmail means the field should contain a valid email
 	// params:"email"
 	ValidateEmail bool
@@ -99,14 +103,12 @@ func NewOptions(tags *reflect.StructTag) (*Options, error) {
 	// We use the enum tag to get all the authorized value a param can have
 	enum := tags.Get("enum")
 	if len(enum) > 0 {
-		// we silently fail on errors
 		output.AuthorizedValues = strings.Split(enum, ",")
 	}
 
 	// We use the max_int tag to get the max value accepted for an int
 	maxInt := tags.Get("max_int")
 	if len(maxInt) > 0 {
-		// we silently fail on errors
 		v, err := strconv.Atoi(maxInt)
 		if err != nil {
 			return nil, perror.New(output.Name, ErrMsgInvalidInteger)
@@ -117,7 +119,6 @@ func NewOptions(tags *reflect.StructTag) (*Options, error) {
 	// We use the min_int tag to get the min value accepted for an int
 	minInt := tags.Get("min_int")
 	if len(minInt) > 0 {
-		// we silently fail on errors
 		v, err := strconv.Atoi(minInt)
 		if err != nil {
 			return nil, perror.New(output.Name, ErrMsgInvalidInteger)
@@ -142,6 +143,8 @@ func NewOptions(tags *reflect.StructTag) (*Options, error) {
 			output.ValidateEmail = true
 		case "url":
 			output.ValidateURL = true
+		case "slug":
+			output.ValidateSlug = true
 		case "image":
 			output.ValidateImage = true
 		}
@@ -166,6 +169,10 @@ func (opts *Options) Validate(value string, wasProvided bool) error {
 	if value != "" {
 		if opts.ValidateUUID && !strngs.IsValidUUID(value) {
 			return perror.New(opts.Name, ErrMsgInvalidUUID)
+		}
+
+		if opts.ValidateSlug && !strngs.IsValidSlug(value) {
+			return perror.New(opts.Name, ErrMsgInvalidSlug)
 		}
 
 		if opts.ValidateURL && !strngs.IsValidURL(value) {

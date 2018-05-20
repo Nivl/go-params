@@ -53,6 +53,7 @@ func TestSetFile(t *testing.T) {
 	t.Run("no name", subTestSetFileNoName)
 	t.Run("wrong struct", subTestSetFileWrongStruct)
 	t.Run("formFile returned an unknown error", subTestSetFileFormFileFail)
+	t.Run("invalid struct", subTestSetFileInvalidStruct)
 }
 
 func subTestSetFileFormFileFail(t *testing.T) {
@@ -101,8 +102,24 @@ func subTestSetFileWrongStruct(t *testing.T) {
 	paramList := reflect.ValueOf(&strct{}).Elem()
 	p := newParamFromStructValue(&paramList, 0)
 	err := p.SetFile(fileHolder)
-	assert.Error(t, err, "Expected SetFile not to return an error")
+	assert.Error(t, err, "Expected SetFile to return an error")
 	assert.True(t, strings.Contains(err.Error(), "the only accepted type for a file is"), "SetFile() failed with an unexpected error")
+}
+
+func subTestSetFileInvalidStruct(t *testing.T) {
+	t.Parallel()
+
+	// this struct makes no sense, but it's still technically doable
+	type strct struct {
+		File *formfile.FormFile `from:"file" maxlen:"NaN"`
+	}
+
+	// Call the function to test
+	paramList := reflect.ValueOf(&strct{}).Elem()
+	p := newParamFromStructValue(&paramList, 0)
+	err := p.SetFile(nil)
+	assert.Error(t, err, "Expected SetFile to return an error")
+	assert.Equal(t, params.ErrMsgInvalidInteger, err.Error(), "SetFile() failed with an unexpected error")
 }
 
 func subTestSetFileNoName(t *testing.T) {
@@ -406,6 +423,13 @@ func subTestsSetValueIntRegular(t *testing.T) {
 			url.Values{"int": []string{"1"}},
 			0,
 			perror.New("int", params.ErrMsgIntegerTooBig),
+		},
+		{
+			"NaN should fail with max_int",
+			`json:"int" max_int:"NaN"`,
+			url.Values{"int": []string{"1"}},
+			0,
+			perror.New("int", params.ErrMsgInvalidInteger),
 		},
 	}
 

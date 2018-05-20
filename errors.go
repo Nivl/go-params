@@ -13,6 +13,10 @@ const (
 	// an invalid UUID
 	ErrMsgInvalidUUID = "not a valid uuid"
 
+	// ErrMsgInvalidSlug represents the error message corresponding to
+	// an invalid slug
+	ErrMsgInvalidSlug = "not a valid slug"
+
 	// ErrMsgInvalidURL represents the error message corresponding to
 	// an invalid URL
 	ErrMsgInvalidURL = "not a valid url"

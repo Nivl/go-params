@@ -435,9 +435,9 @@ func subTestFileUpload(t *testing.T) {
 			err := p.Parse(nil, fileHolder)
 
 			if tc.sendNil {
-				assert.Error(t, err, "Expected SetFile to return an error")
+				assert.Error(t, err, "Expected Parse to return an error")
 			} else {
-				assert.NoError(t, err, "Expected SetFile not to return an error")
+				assert.NoError(t, err, "Expected Parse not to return an error")
 			}
 		})
 	}

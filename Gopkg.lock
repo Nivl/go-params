@@ -4,8 +4,14 @@
 [[projects]]
   branch = "master"
   name = "github.com/Nivl/go-types"
-  packages = ["date","filetype","ptrs","slices","strngs"]
-  revision = "d7885e3ee74696687bb44c738b2a117604b298e9"
+  packages = [
+    "date",
+    "filetype",
+    "ptrs",
+    "slices",
+    "strngs"
+  ]
+  revision = "5e70015b8dce49a08d8823c2374f7ab595b2a26b"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -27,7 +33,10 @@
 
 [[projects]]
   name = "github.com/stretchr/testify"
-  packages = ["assert","require"]
+  packages = [
+    "assert",
+    "require"
+  ]
   revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
   version = "v1.1.4"
 
