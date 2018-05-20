@@ -25,6 +25,7 @@
 * `url`: The value is required to be a valid http(s) url.
 * `email`: The value is required to be a valid email.
 * `slug`: The value is required to be a valid slug.
+* `slugOrUuid`: The value is required to be either a valid slug or a valid UUIDv4.
 
 ### Pointers specific params
 

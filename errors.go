@@ -17,6 +17,10 @@ const (
 	// an invalid slug
 	ErrMsgInvalidSlug = "not a valid slug"
 
+	// ErrMsgInvalidSlugOrUUID represents the error message corresponding to
+	// a field that is neither a slug or a UUIDv4
+	ErrMsgInvalidSlugOrUUID = "not a valid slug"
+
 	// ErrMsgInvalidURL represents the error message corresponding to
 	// an invalid URL
 	ErrMsgInvalidURL = "not a valid url"

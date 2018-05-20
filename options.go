@@ -40,6 +40,11 @@ type Options struct {
 	// params:"slug"
 	ValidateSlug bool
 
+	// ValidateSlugOrUUID means the field should contain a valid slug or a valid
+	// UUIDv4
+	// params:"slugOrUuid"
+	ValidateSlugOrUUID bool
+
 	// ValidateEmail means the field should contain a valid email
 	// params:"email"
 	ValidateEmail bool
@@ -145,6 +150,8 @@ func NewOptions(tags *reflect.StructTag) (*Options, error) {
 			output.ValidateURL = true
 		case "slug":
 			output.ValidateSlug = true
+		case "slugOrUuid":
+			output.ValidateSlugOrUUID = true
 		case "image":
 			output.ValidateImage = true
 		}
@@ -173,6 +180,12 @@ func (opts *Options) Validate(value string, wasProvided bool) error {
 
 		if opts.ValidateSlug && !strngs.IsValidSlug(value) {
 			return perror.New(opts.Name, ErrMsgInvalidSlug)
+		}
+
+		if opts.ValidateSlugOrUUID &&
+			!strngs.IsValidSlug(value) &&
+			!strngs.IsValidUUID(value) {
+			return perror.New(opts.Name, ErrMsgInvalidSlugOrUUID)
 		}
 
 		if opts.ValidateURL && !strngs.IsValidURL(value) {
