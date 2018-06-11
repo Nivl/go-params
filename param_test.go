@@ -3,16 +3,16 @@
 package params_test
 
 import (
-	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"reflect"
-	"strings"
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	params "github.com/Nivl/go-params"
 	"github.com/Nivl/go-params/formfile"
@@ -48,6 +48,7 @@ func TestSetValue(t *testing.T) {
 
 func TestSetFile(t *testing.T) {
 	t.Run("any type of files, required", subTestSetFileParamRequired)
+	t.Run("any type of files, not required", subTestSetFileParamNotRequired)
 	t.Run("only valid images", subTestSetFileParamValidImage)
 	t.Run("ignore", subTestSetFileIgnore)
 	t.Run("no name", subTestSetFileNoName)
@@ -69,13 +70,12 @@ func subTestSetFileFormFileFail(t *testing.T) {
 
 	// Set the expectations
 	fileHolder := mockformfile.NewMockFileHolder(mockCtrl)
-	fileHolder.EXPECT().FormFile("File").Return(nil, nil, errors.New("unexpected error"))
 
 	// Call the function to test
 	paramList := reflect.ValueOf(&strct{}).Elem()
 	p := newParamFromStructValue(&paramList, 0)
 	err := p.SetFile(fileHolder)
-	assert.Error(t, err, "Expected SetFile not to return an error")
+	require.Error(t, err, "Expected SetFile to return an error")
 }
 
 func subTestSetFileWrongStruct(t *testing.T) {
@@ -89,21 +89,15 @@ func subTestSetFileWrongStruct(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	// create the multipart data
-	cwd, _ := os.Getwd()
-	imageHeader, imageFile := testformfile.NewMultipartData(t, cwd, "black_pixel.png")
-	defer imageFile.Close()
-
 	// Set the expectations
 	fileHolder := mockformfile.NewMockFileHolder(mockCtrl)
-	fileHolder.EXPECT().FormFile("File").Return(imageFile, imageHeader, nil)
 
 	// Call the function to test
 	paramList := reflect.ValueOf(&strct{}).Elem()
 	p := newParamFromStructValue(&paramList, 0)
 	err := p.SetFile(fileHolder)
-	assert.Error(t, err, "Expected SetFile to return an error")
-	assert.True(t, strings.Contains(err.Error(), "the only accepted type for a file is"), "SetFile() failed with an unexpected error")
+	require.Error(t, err, "Expected SetFile to return an error")
+	assert.Contains(t, err.Error(), "the only accepted type for a file is", "SetFile() failed with an unexpected error")
 }
 
 func subTestSetFileInvalidStruct(t *testing.T) {
@@ -118,8 +112,7 @@ func subTestSetFileInvalidStruct(t *testing.T) {
 	paramList := reflect.ValueOf(&strct{}).Elem()
 	p := newParamFromStructValue(&paramList, 0)
 	err := p.SetFile(nil)
-	assert.Error(t, err, "Expected SetFile to return an error")
-	assert.Equal(t, params.ErrMsgInvalidInteger, err.Error(), "SetFile() failed with an unexpected error")
+	require.EqualError(t, err, params.ErrMsgInvalidInteger, "SetFile() failed with an unexpected error")
 }
 
 func subTestSetFileNoName(t *testing.T) {
@@ -146,7 +139,7 @@ func subTestSetFileNoName(t *testing.T) {
 	paramList := reflect.ValueOf(&strct{}).Elem()
 	p := newParamFromStructValue(&paramList, 0)
 	err := p.SetFile(fileHolder)
-	assert.NoError(t, err, "Expected SetFile not to return an error")
+	require.NoError(t, err, "Expected SetFile not to return an error")
 }
 
 func subTestSetFileIgnore(t *testing.T) {
@@ -167,7 +160,7 @@ func subTestSetFileIgnore(t *testing.T) {
 	paramList := reflect.ValueOf(&strct{}).Elem()
 	p := newParamFromStructValue(&paramList, 0)
 	err := p.SetFile(fileHolder)
-	assert.NoError(t, err, "SetFile() shuld not have fail")
+	require.NoError(t, err, "SetFile() shuld not have fail")
 }
 
 func subTestSetFileParamValidImage(t *testing.T) {
@@ -240,10 +233,10 @@ func subTestSetFileParamValidImage(t *testing.T) {
 
 			// assert
 			if tc.expectedError != nil {
-				assert.Error(t, err, "Expected SetFile to return an error")
+				require.Error(t, err, "Expected SetFile to return an error")
 				assert.Equal(t, tc.expectedError, err, "Wrong error returned")
 			} else {
-				assert.NoError(t, err, "Expected SetFile not to return an error")
+				require.NoError(t, err, "Expected SetFile not to return an error")
 
 				if tc.filename != "" {
 					assert.Equal(t, tc.expectedMime, tc.s.File.Mime, "Wrong mime type")
@@ -261,13 +254,14 @@ func subTestSetFileParamRequired(t *testing.T) {
 	}
 
 	testCases := []struct {
-		description string
-		s           strct
-		sendNil     bool
-		shouldFail  bool
+		description      string
+		s                strct
+		filename         string
+		expectedErrorMsg string
 	}{
-		{"Nil pointer should fail", strct{}, true, true},
-		{"Valid value should work", strct{}, false, false},
+		{"Nil pointer should fail", strct{}, "", params.ErrMsgMissingParameter},
+		{"Valid value should work", strct{}, "LICENSE", ""},
+		{"Empty file should fail", strct{}, "empty", params.ErrMsgEmptyFile},
 	}
 
 	for _, tc := range testCases {
@@ -279,19 +273,20 @@ func subTestSetFileParamRequired(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			defer mockCtrl.Finish()
 
-			// create the multipart data
-			cwd, _ := os.Getwd()
-			licenseHeader, licenseFile := testformfile.NewMultipartData(t, cwd, "LICENSE")
-			defer licenseFile.Close()
-
 			// Expectations
 			fileHolder := mockformfile.NewMockFileHolder(mockCtrl)
 			onFormFile := fileHolder.EXPECT().FormFile("file")
 
-			if tc.sendNil {
+			var fileHeader *multipart.FileHeader
+			var fileData *os.File
+			if tc.filename == "" {
 				onFormFile.Return(nil, nil, http.ErrMissingFile)
 			} else {
-				onFormFile.Return(licenseFile, licenseHeader, nil)
+				cwd, _ := os.Getwd()
+				fileHeader, fileData = testformfile.NewMultipartData(t, cwd, tc.filename)
+				defer fileData.Close()
+
+				onFormFile.Return(fileData, fileHeader, nil)
 			}
 
 			paramList := reflect.ValueOf(&tc.s).Elem()
@@ -299,16 +294,79 @@ func subTestSetFileParamRequired(t *testing.T) {
 
 			err := p.SetFile(fileHolder)
 
-			if tc.sendNil {
-				assert.Error(t, err, "Expected SetFile to return an error")
-
+			if tc.expectedErrorMsg != "" {
+				require.EqualError(t, err, tc.expectedErrorMsg, "SetFile returned an unexpected error")
 			} else {
-				assert.NoError(t, err, "Expected SetFile not to return an error")
+				require.NoError(t, err, "Expected SetFile not to return an error")
 
 				if assert.NotNil(t, tc.s.File, "Expected File NOT to be nil") {
 					assert.NotNil(t, tc.s.File.File, "Expected File.File NOT to be nil")
 					assert.NotNil(t, tc.s.File.Header, "Expected File.Header NOT to be nil")
-					assert.Equal(t, licenseHeader.Filename, tc.s.File.Header.Filename)
+					assert.Equal(t, fileHeader.Filename, tc.s.File.Header.Filename)
+				}
+			}
+		})
+	}
+}
+
+func subTestSetFileParamNotRequired(t *testing.T) {
+	t.Parallel()
+
+	type strct struct {
+		File *formfile.FormFile `from:"file" json:"file"`
+	}
+
+	testCases := []struct {
+		description      string
+		s                strct
+		filename         string
+		expectedErrorMsg string
+	}{
+		{"No file should work", strct{}, "", ""},
+		{"Valid value should work", strct{}, "LICENSE", ""},
+		{"Empty file should fail", strct{}, "empty", params.ErrMsgEmptyFile},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+
+			// init the mocks
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			// Expectations
+			fileHolder := mockformfile.NewMockFileHolder(mockCtrl)
+			onFormFile := fileHolder.EXPECT().FormFile("file")
+
+			var fileHeader *multipart.FileHeader
+			var fileData *os.File
+			if tc.filename == "" {
+				onFormFile.Return(nil, nil, http.ErrMissingFile)
+			} else {
+				cwd, _ := os.Getwd()
+				fileHeader, fileData = testformfile.NewMultipartData(t, cwd, tc.filename)
+				defer fileData.Close()
+
+				onFormFile.Return(fileData, fileHeader, nil)
+			}
+
+			paramList := reflect.ValueOf(&tc.s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+
+			err := p.SetFile(fileHolder)
+
+			if tc.expectedErrorMsg != "" {
+				require.EqualError(t, err, tc.expectedErrorMsg, "SetFile returned an unexpected error")
+			} else {
+				require.NoError(t, err, "Expected SetFile not to return an error")
+
+				if tc.filename != "" {
+					require.NotNil(t, tc.s.File, "Expected File NOT to be nil")
+					assert.NotNil(t, tc.s.File.File, "Expected File.File NOT to be nil")
+					assert.NotNil(t, tc.s.File.Header, "Expected File.Header NOT to be nil")
+					assert.Equal(t, fileHeader.Filename, tc.s.File.Header.Filename)
 				}
 			}
 		})
@@ -352,7 +410,7 @@ func subTestsSetValueIntPointer(t *testing.T) {
 			p.Tags = &tag
 
 			err := p.SetValue(tc.source)
-			assert.NoError(t, err, "SetValue() should not have fail")
+			require.NoError(t, err, "SetValue() should not have fail")
 
 			if tc.expectedValue == nil {
 				assert.Nil(t, s.Value, "SetValue() should not have set any value")
@@ -448,10 +506,10 @@ func subTestsSetValueIntRegular(t *testing.T) {
 
 			err := p.SetValue(tc.source)
 			if tc.expectedError != nil {
-				assert.Error(t, err, "SetValue() should have fail")
+				require.Error(t, err, "SetValue() should have fail")
 				assert.Equal(t, tc.expectedError, err, "SetValue() did not return the expected error")
 			} else {
-				assert.NoError(t, err, "SetValue() should not have fail")
+				require.NoError(t, err, "SetValue() should not have fail")
 				assert.Equal(t, tc.expectedValue, s.Value, "SetValue() did not set the expected value")
 			}
 		})
@@ -504,10 +562,10 @@ func subTestsSetValueStringRegular(t *testing.T) {
 
 			err := p.SetValue(tc.source)
 			if tc.expectedError != nil {
-				assert.Error(t, err, "SetValue() should have fail")
+				require.Error(t, err, "SetValue() should have fail")
 				assert.Equal(t, tc.expectedError, err, "SetValue() did not return the expected error")
 			} else {
-				assert.NoError(t, err, "SetValue() should not have fail")
+				require.NoError(t, err, "SetValue() should not have fail")
 				assert.Equal(t, tc.expectedValue, s.Value, "SetValue() did not set the expected value")
 			}
 		})
@@ -551,7 +609,7 @@ func subTestsSetValueStringPointer(t *testing.T) {
 			p.Tags = &tag
 
 			err := p.SetValue(tc.source)
-			assert.NoError(t, err, "SetValue() should not have fail")
+			require.NoError(t, err, "SetValue() should not have fail")
 
 			if tc.expectedValue == nil {
 				assert.Nil(t, s.Value, "SetValue() should not have set any value")
@@ -626,10 +684,10 @@ func subTestsSetValueBoolRegular(t *testing.T) {
 
 			err := p.SetValue(tc.source)
 			if tc.expectedError != nil {
-				assert.Error(t, err, "SetValue() should have fail")
+				require.Error(t, err, "SetValue() should have fail")
 				assert.Equal(t, tc.expectedError, err, "SetValue() did not return the expected error")
 			} else {
-				assert.NoError(t, err, "SetValue() should not have fail")
+				require.NoError(t, err, "SetValue() should not have fail")
 				assert.Equal(t, tc.expectedValue, s.Value, "SetValue() did not set the expected value")
 			}
 		})
@@ -673,7 +731,7 @@ func subTestsSetValueBoolPointer(t *testing.T) {
 			p.Tags = &tag
 
 			err := p.SetValue(tc.source)
-			assert.NoError(t, err, "SetValue() should not have fail")
+			require.NoError(t, err, "SetValue() should not have fail")
 
 			if tc.expectedValue == nil {
 				assert.Nil(t, s.Value, "SetValue() should not have set any value")
@@ -723,10 +781,10 @@ func subTestsSetValueScannableStruct(t *testing.T) {
 
 			err := p.SetValue(tc.source)
 			if tc.expectedError != nil {
-				assert.Error(t, err, "SetValue() should have fail")
+				require.Error(t, err, "SetValue() should have fail")
 				assert.Equal(t, tc.expectedError, err, "SetValue() did not return the expected error")
 			} else {
-				assert.NoError(t, err, "SetValue() should not have fail")
+				require.NoError(t, err, "SetValue() should not have fail")
 				assert.Equal(t, tc.expectedStringValue, s.Value.String(), "SetValue() did not set the expected value")
 			}
 		})

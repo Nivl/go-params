@@ -56,4 +56,12 @@ const (
 	// ErrMsgIntegerTooSmall represents the error message corresponding to
 	// an integer being to small
 	ErrMsgIntegerTooSmall = "value too small"
+
+	// ErrMsgEmptyFile represents the error message corresponding to
+	// an empty file being sent
+	ErrMsgEmptyFile = "file empty"
+
+	// ErrMsgCorruptedFile represents the error message corresponding to
+	// a corrupted file
+	ErrMsgCorruptedFile = "file seems corrupted"
 )

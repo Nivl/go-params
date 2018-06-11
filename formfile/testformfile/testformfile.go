@@ -13,16 +13,24 @@ import (
 // NewMultipartData is a helper to generate multipart data that can be returned
 // by FileHolder.FormFile()
 func NewMultipartData(t *testing.T, cwd string, filename string) (*multipart.FileHeader, *os.File) {
-	// We create the Head and the file
-	header := &multipart.FileHeader{
-		Filename: filename,
-	}
+	// find and open the file
 	filePath := path.Join(cwd, "testdata", filename)
 	file, err := os.Open(filePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// we call stat to get data about the file
+	stat, err := file.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// build a fake header
+	header := &multipart.FileHeader{
+		Filename: filename,
+		Size:     stat.Size(),
+	}
 	return header, file
 }
 

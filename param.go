@@ -2,6 +2,7 @@ package params
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -21,6 +22,11 @@ type Param struct {
 
 // SetFile sets the value of the param using the provided source to find the file
 func (p *Param) SetFile(source formfile.FileHolder) error {
+	// We make sure we are using the right structure to store the file
+	if p.Info.Type.String() != "*formfile.FormFile" {
+		return fmt.Errorf("the only accepted type for a file is *formfile.FormFile, got %s", p.Info.Type)
+	}
+
 	// We parse the tag to get the options
 	opts, err := NewOptions(p.Tags)
 	if err != nil {
@@ -53,12 +59,15 @@ func (p *Param) SetFile(source formfile.FileHolder) error {
 		File:   file,
 		Header: header,
 	}
-	if p.Info.Type.String() != "*formfile.FormFile" {
-		return fmt.Errorf("the only accepted type for a file is *formfile.FormFile, got %s", p.Info.Type)
-	}
 
 	ff.Mime, err = opts.ValidateFileContent(ff.File)
 	if err != nil {
+		if err == io.EOF {
+			if header.Size == 0 {
+				return perror.New(opts.Name, ErrMsgEmptyFile)
+			}
+			return perror.New(opts.Name, ErrMsgCorruptedFile)
+		}
 		return err
 	}
 
