@@ -17,7 +17,7 @@ func NewMultipartData(t *testing.T, cwd string, filename string) (*multipart.Fil
 	header := &multipart.FileHeader{
 		Filename: filename,
 	}
-	filePath := path.Join(cwd, "fixtures", filename)
+	filePath := path.Join(cwd, "testdata", filename)
 	file, err := os.Open(filePath)
 	if err != nil {
 		t.Fatal(err)

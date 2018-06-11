@@ -489,7 +489,7 @@ func TestValidateFileContent(t *testing.T) {
 			tag := reflect.StructTag(tc.tag)
 			opts, err := params.NewOptions(&tag)
 			require.NoError(t, err, "NewOptions() should not have failed)")
-			filepath := path.Join("fixtures", tc.filename)
+			filepath := path.Join("testdata", tc.filename)
 			file, err := os.Open(filepath)
 			require.NoError(t, err, "Open() should not have failed)")
 
