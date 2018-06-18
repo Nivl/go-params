@@ -29,21 +29,32 @@ func TestSetValue(t *testing.T) {
 		t.Parallel()
 		t.Run("regular", subTestsSetValueIntRegular)
 		t.Run("pointer", subTestsSetValueIntPointer)
+		t.Run("slices", subTestsSetValueIntSlice)
+		t.Run("slices of pointers", subTestsSetValueIntSlicePointer)
 	})
 
 	t.Run("string", func(t *testing.T) {
 		t.Parallel()
 		t.Run("regular", subTestsSetValueStringRegular)
 		t.Run("pointer", subTestsSetValueStringPointer)
+		t.Run("slices", subTestsSetValueStringSlice)
+		t.Run("slices of pointers", subTestsSetValueStringSlicePointer)
 	})
 
 	t.Run("bool", func(t *testing.T) {
 		t.Parallel()
 		t.Run("regular", subTestsSetValueBoolRegular)
-		t.Run("pointer", subTestsSetValueStringPointer)
+		t.Run("pointer", subTestsSetValueBoolPointer)
+		t.Run("slices", subTestsSetValueBoolSlice)
+		t.Run("slices of pointers", subTestsSetValueBoolSlicePointer)
 	})
 
-	t.Run("scannable struct", subTestsSetValueScannableStruct)
+	t.Run("scannable struct", func(t *testing.T) {
+		t.Parallel()
+		t.Run("regular", subTestSetValueScannableStruct)
+		t.Run("slices", subTestSetValueScannableStructSlice)
+		t.Run("slices of pointers", subTestSetValueScannablePointerStructSlice)
+	})
 }
 
 func TestSetFile(t *testing.T) {
@@ -373,6 +384,121 @@ func subTestSetFileParamNotRequired(t *testing.T) {
 	}
 }
 
+func subTestsSetValueIntSlice(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		description   string // optional, will use tag if empty
+		tag           string
+		source        url.Values
+		expectedValue []int
+		expectedError error
+	}{
+		{
+			"valid value, not tag",
+			`json:"slice"`,
+			url.Values{"slice": []string{"1", "2", "3"}},
+			[]int{1, 2, 3},
+			nil,
+		},
+		{
+			"invalid value, not tag",
+			`json:"slice"`,
+			url.Values{"slice": []string{"1", "nan", "3"}},
+			[]int{},
+			perror.New("slice", params.ErrMsgInvalidInteger),
+		},
+
+		{
+			"not provided",
+			`json:"slice"`,
+			url.Values{},
+			nil,
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			s := struct {
+				Value []int
+			}{}
+
+			paramList := reflect.ValueOf(&s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+			tag := reflect.StructTag(tc.tag)
+			p.Tags = &tag
+
+			err := p.SetValue(tc.source)
+			if tc.expectedError == nil {
+				require.NoError(t, err, "SetValue() should not have fail")
+				assert.Equal(t, tc.expectedValue, s.Value, "SetValue() did not set the expected value")
+			} else {
+				require.Equal(t, tc.expectedError, err, "SetValue() returned an unexpected error")
+			}
+		})
+	}
+}
+
+func subTestsSetValueIntSlicePointer(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		description   string // optional, will use tag if empty
+		tag           string
+		source        url.Values
+		expectedValue []*int
+		expectedError error
+	}{
+		{
+			"valid value, not tag",
+			`json:"slice"`,
+			url.Values{"slice": []string{"1", "2", "3"}},
+			[]*int{ptrs.NewInt(1), ptrs.NewInt(2), ptrs.NewInt(3)},
+			nil,
+		},
+		{
+			"invalid value, not tag",
+			`json:"slice"`,
+			url.Values{"slice": []string{"1", "nan", "3"}},
+			[]*int{},
+			perror.New("slice", params.ErrMsgInvalidInteger),
+		},
+		{
+			"not provided",
+			`json:"slice"`,
+			url.Values{},
+			nil,
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			s := struct {
+				Value []*int
+			}{}
+
+			paramList := reflect.ValueOf(&s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+			tag := reflect.StructTag(tc.tag)
+			p.Tags = &tag
+
+			err := p.SetValue(tc.source)
+			if tc.expectedError == nil {
+				require.NoError(t, err, "SetValue() should not have fail")
+				assert.Equal(t, tc.expectedValue, s.Value, "SetValue() did not set the expected value")
+			} else {
+				require.Equal(t, tc.expectedError, err, "SetValue() returned an unexpected error")
+			}
+		})
+	}
+}
+
 func subTestsSetValueIntPointer(t *testing.T) {
 	t.Parallel()
 
@@ -572,6 +698,99 @@ func subTestsSetValueStringRegular(t *testing.T) {
 	}
 }
 
+func subTestsSetValueStringSlicePointer(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		description   string // optional, will use tag if empty
+		tag           string
+		source        url.Values
+		expectedValue []*string
+		expectedError error
+	}{
+		{
+			"valid value, not tag",
+			`json:"slice"`,
+			url.Values{"slice": []string{"1", "2", "3"}},
+			[]*string{ptrs.NewString("1"), ptrs.NewString("2"), ptrs.NewString("3")},
+			nil,
+		},
+		{
+			"not provided",
+			`json:"slice"`,
+			url.Values{},
+			nil,
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			s := struct {
+				Value []*string
+			}{}
+
+			paramList := reflect.ValueOf(&s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+			tag := reflect.StructTag(tc.tag)
+			p.Tags = &tag
+
+			err := p.SetValue(tc.source)
+			if tc.expectedError == nil {
+				require.NoError(t, err, "SetValue() should not have fail")
+				assert.Equal(t, tc.expectedValue, s.Value, "SetValue() did not set the expected value")
+			} else {
+				require.Equal(t, tc.expectedError, err, "SetValue() returned an unexpected error")
+			}
+		})
+	}
+}
+
+func subTestsSetValueStringSlice(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		description   string // optional, will use tag if empty
+		tag           string
+		source        url.Values
+		expectedValue []string
+	}{
+		{
+			"valid value, not tag",
+			`json:"slice"`,
+			url.Values{"slice": []string{"1", "2", "3"}},
+			[]string{"1", "2", "3"},
+		},
+		{
+			"not provided",
+			`json:"slice"`,
+			url.Values{},
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			s := struct {
+				Value []string
+			}{}
+
+			paramList := reflect.ValueOf(&s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+			tag := reflect.StructTag(tc.tag)
+			p.Tags = &tag
+
+			err := p.SetValue(tc.source)
+			require.NoError(t, err, "SetValue() should not have fail")
+			assert.Equal(t, tc.expectedValue, s.Value, "SetValue() did not set the expected value")
+		})
+	}
+}
+
 func subTestsSetValueStringPointer(t *testing.T) {
 	t.Parallel()
 
@@ -694,6 +913,121 @@ func subTestsSetValueBoolRegular(t *testing.T) {
 	}
 }
 
+func subTestsSetValueBoolSlicePointer(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		description   string // optional, will use tag if empty
+		tag           string
+		source        url.Values
+		expectedValue []*bool
+		expectedError error
+	}{
+		{
+			"valid value, not tag",
+			`json:"slice"`,
+			url.Values{"slice": []string{"1", "false", "true"}},
+			[]*bool{ptrs.NewBool(true), ptrs.NewBool(false), ptrs.NewBool(true)},
+			nil,
+		},
+		{
+			"invalid value, not tag",
+			`json:"slice"`,
+			url.Values{"slice": []string{"1", "not-a-bool", "3"}},
+			[]*bool{},
+			perror.New("slice", params.ErrMsgInvalidBoolean),
+		},
+		{
+			"not provided",
+			`json:"slice"`,
+			url.Values{},
+			nil,
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			s := struct {
+				Value []*bool
+			}{}
+
+			paramList := reflect.ValueOf(&s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+			tag := reflect.StructTag(tc.tag)
+			p.Tags = &tag
+
+			err := p.SetValue(tc.source)
+			if tc.expectedError == nil {
+				require.NoError(t, err, "SetValue() should not have fail")
+				assert.Equal(t, tc.expectedValue, s.Value, "SetValue() did not set the expected value")
+			} else {
+				require.Equal(t, tc.expectedError, err, "SetValue() returned an unexpected error")
+			}
+		})
+	}
+}
+
+func subTestsSetValueBoolSlice(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		description   string // optional, will use tag if empty
+		tag           string
+		source        url.Values
+		expectedValue []bool
+		expectedError error
+	}{
+		{
+			"valid value, not tag",
+			`json:"slice"`,
+			url.Values{"slice": []string{"1", "0", "true"}},
+			[]bool{true, false, true},
+			nil,
+		},
+		{
+			"invalid value, not tag",
+			`json:"slice"`,
+			url.Values{"slice": []string{"1", "nope", "true"}},
+			[]bool{},
+			perror.New("slice", params.ErrMsgInvalidBoolean),
+		},
+
+		{
+			"not provided",
+			`json:"slice"`,
+			url.Values{},
+			nil,
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			s := struct {
+				Value []bool
+			}{}
+
+			paramList := reflect.ValueOf(&s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+			tag := reflect.StructTag(tc.tag)
+			p.Tags = &tag
+
+			err := p.SetValue(tc.source)
+			if tc.expectedError == nil {
+				require.NoError(t, err, "SetValue() should not have fail")
+				assert.Equal(t, tc.expectedValue, s.Value, "SetValue() did not set the expected value")
+			} else {
+				require.Equal(t, tc.expectedError, err, "SetValue() returned an unexpected error")
+			}
+		})
+	}
+}
+
 func subTestsSetValueBoolPointer(t *testing.T) {
 	t.Parallel()
 
@@ -742,7 +1076,7 @@ func subTestsSetValueBoolPointer(t *testing.T) {
 	}
 }
 
-func subTestsSetValueScannableStruct(t *testing.T) {
+func subTestSetValueScannableStruct(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -786,6 +1120,116 @@ func subTestsSetValueScannableStruct(t *testing.T) {
 			} else {
 				require.NoError(t, err, "SetValue() should not have fail")
 				assert.Equal(t, tc.expectedStringValue, s.Value.String(), "SetValue() did not set the expected value")
+			}
+		})
+	}
+}
+
+func subTestSetValueScannablePointerStructSlice(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		description         string // optional, will use tag if empty
+		tag                 string
+		source              url.Values
+		expectedStringValue []string
+		expectedError       error
+	}{
+		{
+			"valid date should work",
+			`json:"date"`,
+			url.Values{"date": []string{"2017-09-09", "2017-09-10"}},
+			[]string{"2017-09-09", "2017-09-10"}, nil,
+		},
+		{
+			"invalid date should fail",
+			`json:"date"`,
+			url.Values{"date": []string{"not-a-date"}},
+			[]string{}, perror.New("date", date.ErrMsgInvalidFormat),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			s := struct {
+				Value []date.Date
+			}{}
+
+			paramList := reflect.ValueOf(&s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+			tag := reflect.StructTag(tc.tag)
+			p.Tags = &tag
+
+			err := p.SetValue(tc.source)
+			if tc.expectedError != nil {
+				require.Error(t, err, "SetValue() should have fail")
+				assert.Equal(t, tc.expectedError, err, "SetValue() did not return the expected error")
+			} else {
+				require.NoError(t, err, "SetValue() should not have fail")
+				assert.Len(t, s.Value, len(tc.expectedStringValue), "SetValue() returned an unexpected number of elements")
+
+				output := []string{}
+				for _, d := range s.Value {
+					output = append(output, d.String())
+				}
+				assert.Equal(t, tc.expectedStringValue, output, "SetValue() did not set the expected values")
+			}
+		})
+	}
+}
+
+func subTestSetValueScannableStructSlice(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		description         string // optional, will use tag if empty
+		tag                 string
+		source              url.Values
+		expectedStringValue []string
+		expectedError       error
+	}{
+		{
+			"valid date should work",
+			`json:"date"`,
+			url.Values{"date": []string{"2017-09-09", "2017-09-10"}},
+			[]string{"2017-09-09", "2017-09-10"}, nil,
+		},
+		{
+			"invalid date should fail",
+			`json:"date"`,
+			url.Values{"date": []string{"not-a-date"}},
+			[]string{}, perror.New("date", date.ErrMsgInvalidFormat),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			s := struct {
+				Value []*date.Date
+			}{}
+
+			paramList := reflect.ValueOf(&s).Elem()
+			p := newParamFromStructValue(&paramList, 0)
+			tag := reflect.StructTag(tc.tag)
+			p.Tags = &tag
+
+			err := p.SetValue(tc.source)
+			if tc.expectedError != nil {
+				require.Error(t, err, "SetValue() should have fail")
+				assert.Equal(t, tc.expectedError, err, "SetValue() did not return the expected error")
+			} else {
+				require.NoError(t, err, "SetValue() should not have fail")
+				assert.Len(t, s.Value, len(tc.expectedStringValue), "SetValue() returned an unexpected number of elements")
+
+				output := []string{}
+				for _, d := range s.Value {
+					output = append(output, d.String())
+				}
+				assert.Equal(t, tc.expectedStringValue, output, "SetValue() did not set the expected values")
 			}
 		})
 	}

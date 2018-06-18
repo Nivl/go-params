@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/Nivl/go-params/perror"
 
@@ -93,18 +94,25 @@ func (p *Param) SetValue(source url.Values) error {
 		opts.Name = p.Info.Name
 	}
 
+	// if we have a slice we need to treat it differently
+	if reflect.Indirect(*p.Value).Kind() == reflect.Slice {
+		return p.setSliceValue(source, opts, defaultValue)
+	}
+
 	value := opts.ApplyTransformations(source.Get(opts.Name))
 	if value == "" {
 		value = defaultValue
 	}
 
 	_, valueProvided := source[opts.Name]
-	if err := opts.Validate(value, valueProvided); err != nil {
+	sugarIsArrayItem := true
+	if err := opts.Validate(value, valueProvided, !sugarIsArrayItem); err != nil {
 		return err
 	}
 
 	// We now set the value in the struct
 	if valueProvided || value != "" {
+		// we malloc a zero value if we need to store a pointer
 		if p.Value.Kind() == reflect.Ptr {
 			val := reflect.New(p.Value.Type().Elem())
 			p.Value.Set(val)
@@ -131,6 +139,117 @@ func (p *Param) SetValue(source url.Values) error {
 				if err := scanner.ScanString(value); err != nil {
 					return perror.New(opts.Name, err.Error())
 				}
+			}
+		}
+	}
+	return nil
+}
+
+// setSliceValue sets the values of the slice param using the provided source
+func (p *Param) setSliceValue(source url.Values, opts *Options, defaultValue string) error {
+	originalValues, valueProvided := source[opts.Name]
+	values := []string{}
+
+	// we make a copy of the original array to keep the original data untouched
+	if valueProvided {
+		values = make([]string, len(originalValues))
+		copy(values, originalValues)
+	}
+
+	for i, v := range values {
+		values[i] = opts.ApplyTransformations(v)
+	}
+
+	// Apply the default value if needed
+	if len(values) == 0 && defaultValue != "" {
+		values = strings.Split(defaultValue, ",")
+	}
+
+	if err := opts.ValidateSlice(values, valueProvided); err != nil {
+		return err
+	}
+
+	// We now set the values in the struct
+	if valueProvided || len(values) > 0 {
+		sliceType := p.Value.Type()         // []*date.Date
+		sliceStructType := sliceType.Elem() // *date.Date OR date.Date
+		isPointer := false
+
+		if sliceStructType.Kind() == reflect.Ptr {
+			sliceStructType = sliceStructType.Elem()
+			isPointer = true
+		}
+
+		// for each type we need to loop over the array of values, cast them
+		// to the right type, and assign them to the param
+		switch sliceStructType.Kind() {
+		case reflect.String:
+			var finalValue reflect.Value
+			if isPointer {
+				finalValue = reflect.MakeSlice(sliceType, len(values), cap(values))
+				for i, value := range values {
+					fmt.Println(i, value)
+					v := value
+					finalValue.Index(i).Set(reflect.ValueOf(&v))
+				}
+			} else {
+				finalValue = reflect.ValueOf(values)
+			}
+			p.Value.Set(finalValue)
+		case reflect.Bool:
+			finalValues := reflect.MakeSlice(sliceType, len(values), cap(values))
+			for i, value := range values {
+				boolVal, err := strconv.ParseBool(value)
+				if err != nil {
+					return perror.New(opts.Name, ErrMsgInvalidBoolean)
+				}
+				var v reflect.Value
+				if isPointer {
+					v = reflect.ValueOf(&boolVal)
+				} else {
+					v = reflect.ValueOf(boolVal)
+				}
+				finalValues.Index(i).Set(v)
+			}
+			p.Value.Set(finalValues)
+
+		case reflect.Int:
+			finalValues := reflect.MakeSlice(sliceType, len(values), cap(values))
+			for i, value := range values {
+				int64Val, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					return perror.New(opts.Name, ErrMsgInvalidInteger)
+				}
+				intVal := int(int64Val)
+				var v reflect.Value
+				if isPointer {
+					v = reflect.ValueOf(&intVal)
+				} else {
+					v = reflect.ValueOf(intVal)
+				}
+				finalValues.Index(i).Set(v)
+			}
+			p.Value.Set(finalValues)
+		case reflect.Struct:
+			if _, ok := reflect.New(sliceStructType).Interface().(Scanner); ok {
+				slice := reflect.MakeSlice(sliceType, len(values), cap(values))
+
+				for i, value := range values {
+					// We need to create a pointer to be able to cast to Scanner
+					strct := reflect.New(sliceStructType)
+					if scanner, ok := strct.Interface().(Scanner); ok {
+						if err := scanner.ScanString(value); err != nil {
+							return perror.New(opts.Name, err.Error())
+						}
+						if !isPointer {
+							// Because we want an array of struct, we use Indirect to deference
+							// the pointer we have
+							strct = reflect.Indirect(strct)
+						}
+						slice.Index(i).Set(strct)
+					}
+				}
+				p.Value.Set(slice)
 			}
 		}
 	}
