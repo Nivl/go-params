@@ -80,6 +80,18 @@ type Options struct {
 	// MaxInt represents the maximum value accepted for an integer
 	// max_int:"255"
 	MaxInt *int
+
+	// MaxItems represents the maximum number of values accepted by an array
+	// max_items:"10"
+	MaxItems *int
+
+	// MinItems represents the minimum number of values accepted by an array
+	// min_items:"10"
+	MinItems *int
+
+	// NoEmptyItems means all items of an array needs to have a value
+	//params:"no_empty_items"
+	NoEmptyItems bool
 }
 
 // NewOptions returns a ParamOptions from a StructTag
@@ -131,6 +143,26 @@ func NewOptions(tags *reflect.StructTag) (*Options, error) {
 		output.MinInt = ptrs.NewInt(v)
 	}
 
+	// We use the min_items tag to get the min number of item accepted by an array
+	minItems := tags.Get("min_items")
+	if len(minItems) > 0 {
+		v, err := strconv.Atoi(minItems)
+		if err != nil {
+			return nil, perror.New(output.Name, ErrMsgInvalidInteger)
+		}
+		output.MinItems = ptrs.NewInt(v)
+	}
+
+	// We use the max_items tag to get the max number of item accepted by an array
+	maxItems := tags.Get("max_items")
+	if len(maxItems) > 0 {
+		v, err := strconv.Atoi(maxItems)
+		if err != nil {
+			return nil, perror.New(output.Name, ErrMsgInvalidInteger)
+		}
+		output.MaxItems = ptrs.NewInt(v)
+	}
+
 	// We parse the params
 	opts := strings.Split(tags.Get("params"), ",")
 	nbOptions := len(opts)
@@ -154,23 +186,62 @@ func NewOptions(tags *reflect.StructTag) (*Options, error) {
 			output.ValidateSlugOrUUID = true
 		case "image":
 			output.ValidateImage = true
+		case "no_empty_items":
+			output.NoEmptyItems = true
 		}
 	}
 	return output, nil
 }
 
+// ValidateSlice checks the given slice passes the options set
+func (opts *Options) ValidateSlice(values []string, wasProvided bool) error {
+	sugarIsArrayItem := true
+	hasValues := len(values) > 0
+
+	if !hasValues && opts.Required {
+		return perror.New(opts.Name, ErrMsgMissingParameter)
+	}
+
+	if !hasValues && wasProvided && opts.NoEmpty {
+		return perror.New(opts.Name, ErrMsgEmptyParameter)
+	}
+
+	if opts.MinItems != nil && len(values) < *opts.MinItems {
+		return perror.New(opts.Name, ErrMsgArrayTooSmall)
+	}
+
+	if opts.MaxItems != nil && len(values) > *opts.MaxItems {
+		return perror.New(opts.Name, ErrMsgArrayTooBig)
+	}
+
+	for _, v := range values {
+		if err := opts.Validate(v, wasProvided, sugarIsArrayItem); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Validate checks the given value passes the options set
-func (opts *Options) Validate(value string, wasProvided bool) error {
+func (opts *Options) Validate(value string, wasProvided, isArrayItem bool) error {
 	if opts.MaxLen > 0 && len(value) > opts.MaxLen {
 		return perror.New(opts.Name, ErrMsgMaxLen)
 	}
 
-	if value == "" && opts.Required {
-		return perror.New(opts.Name, ErrMsgMissingParameter)
-	}
+	// Array items needs to be treated slightly differently
+	if isArrayItem {
+		if value == "" && opts.NoEmptyItems {
+			return perror.New(opts.Name, ErrMsgEmptyItem)
+		}
+	} else {
+		if value == "" && opts.Required {
+			return perror.New(opts.Name, ErrMsgMissingParameter)
+		}
 
-	if value == "" && opts.NoEmpty && wasProvided {
-		return perror.New(opts.Name, ErrMsgEmptyParameter)
+		if value == "" && opts.NoEmpty && wasProvided {
+			return perror.New(opts.Name, ErrMsgEmptyParameter)
+		}
 	}
 
 	if value != "" {

@@ -131,6 +131,24 @@ func TestNewOptions(t *testing.T) {
 			},
 		},
 		{
+			"Set MinItems", `min_items:"1"`,
+			&params.Options{
+				MinItems: ptrs.NewInt(1),
+			},
+		},
+		{
+			"Set MaxItems", `max_items:"3"`,
+			&params.Options{
+				MaxItems: ptrs.NewInt(3),
+			},
+		},
+		{
+			"Set NoEmptyItems", `params:"no_empty_items"`,
+			&params.Options{
+				NoEmptyItems: true,
+			},
+		},
+		{
 			"", `json:"my_var" params:"email,required" maxlen:"30"`,
 			&params.Options{
 				Name:          "my_var",
@@ -151,7 +169,7 @@ func TestNewOptions(t *testing.T) {
 			t.Parallel()
 			tag := reflect.StructTag(tc.tag)
 			output, err := params.NewOptions(&tag)
-			require.NoError(t, err, "NewOptions() should not have failed)")
+			require.NoError(t, err, "NewOptions() should not have failed")
 			assert.Equal(t, tc.expected, output, "NewOptions()returned unexpected data")
 		})
 	}
@@ -163,13 +181,19 @@ func TestNewOptionsError(t *testing.T) {
 		tag         string
 	}{
 		{
-			"Set MaxInt", `max_int:"nan"`,
+			"Set MaxInt nan", `max_int:"nan"`,
 		},
 		{
-			"Set MinInt", `min_int:"nan"`,
+			"Set MinInt nan", `min_int:"nan"`,
 		},
 		{
-			"Set MaxLen", `maxlen:"nan"`,
+			"Set MaxLen nan", `maxlen:"nan"`,
+		},
+		{
+			"Set MinItems nan", `min_items:"nan"`,
+		},
+		{
+			"Set maxItems nan", `max_items:"nan"`,
 		},
 	}
 
@@ -391,12 +415,103 @@ func TestValidate(t *testing.T) {
 			opts, err := params.NewOptions(&tag)
 			require.NoError(t, err, "NewOptions() should not have failed)")
 
-			err = opts.Validate(tc.value, tc.wasProvided)
+			// test regular validate
+			err = opts.Validate(tc.value, tc.wasProvided, false)
 			if tc.expectedError != nil {
 				assert.Error(t, err, "Validate() should have failed")
-				assert.Equal(t, tc.expectedError, err, "Validate() returned an unexcpected error")
+				assert.Equal(t, tc.expectedError, err, "Validate() returned an unexpected error")
 			} else {
 				assert.NoError(t, err, "Validate() should not have failed")
+			}
+
+			// test slice
+			s := []string{}
+			if tc.value != "" {
+				s = []string{tc.value}
+			}
+			err = opts.ValidateSlice(s, tc.wasProvided)
+			if tc.expectedError != nil {
+				assert.Error(t, err, "Validate() should have failed")
+				assert.Equal(t, tc.expectedError, err, "Validate() returned an unexpected error")
+			} else {
+				assert.NoError(t, err, "Validate() should not have failed")
+			}
+
+		})
+	}
+}
+
+func TestValidateSlice(t *testing.T) {
+	// sugars
+	wasProvided := true
+
+	/* Only tests the slice-only params */
+
+	testCases := []struct {
+		description   string
+		tag           string
+		values        []string
+		wasProvided   bool
+		expectedError error
+	}{
+		{
+			"max_items with valid data should work",
+			`json:"field_name" max_items:"3"`,
+			[]string{"one", "two"},
+			wasProvided,
+			nil,
+		},
+		{
+			"max_items with invalid data should fail",
+			`json:"field_name" max_items:"1"`,
+			[]string{"one", "two"},
+			wasProvided,
+			perror.New("field_name", params.ErrMsgArrayTooBig),
+		},
+		{
+			"min_items with valid data should work",
+			`json:"field_name" min_items:"2"`,
+			[]string{"one", "two"},
+			wasProvided,
+			nil,
+		},
+		{
+			"min_items with invalid data should fail",
+			`json:"field_name" min_items:"2"`,
+			[]string{"one"},
+			wasProvided,
+			perror.New("field_name", params.ErrMsgArrayTooSmall),
+		},
+		{
+			"no_empty_items with valid data should work",
+			`json:"field_name" params:"no_empty_items"`,
+			[]string{"one", "two"},
+			wasProvided,
+			nil,
+		},
+		{
+			"no_empty_items with invalid data should fail",
+			`json:"field_name" params:"no_empty_items"`,
+			[]string{"one", "", "two"},
+			wasProvided,
+			perror.New("field_name", params.ErrMsgEmptyItem),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			tag := reflect.StructTag(tc.tag)
+			opts, err := params.NewOptions(&tag)
+			require.NoError(t, err, "NewOptions() should not have failed)")
+
+			err = opts.ValidateSlice(tc.values, tc.wasProvided)
+			if tc.expectedError != nil {
+				assert.Error(t, err, "ValidateSlice() should have failed")
+				assert.Equal(t, tc.expectedError, err, "ValidateSlice() returned an unexpected error")
+			} else {
+				assert.NoError(t, err, "ValidateSlice() should not have failed")
 			}
 		})
 	}

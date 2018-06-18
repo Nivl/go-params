@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/Nivl/go-params/formfile"
@@ -179,20 +178,18 @@ func (p *Params) extractRecursive(paramList reflect.Value, sources map[string]ur
 		valueStr := ""
 		isZeroValue := false
 		switch field.Kind() {
-		case reflect.Bool:
-			valueStr = strconv.FormatBool(field.Bool())
-			isZeroValue = !field.Bool()
-		case reflect.String:
-			valueStr = field.String()
-			isZeroValue = (valueStr == "")
-		case reflect.Int:
-			valueStr = strconv.Itoa(int(field.Int()))
-			isZeroValue = (field.Int() == 0)
-		default:
-			// If we have anything that implements a stringer, then let's use that
-			if s, isStringer := value.Interface().(fmt.Stringer); isStringer {
-				valueStr = s.String()
+		case reflect.Slice:
+			totalElems := value.Len()
+			for i := 0; i < totalElems; i++ {
+				stringValue := fmt.Sprintf("%v", value.Index(i).Interface())
+				sources[sourceType].Add(fieldName, stringValue)
 			}
+			// special case so we return right away
+			continue
+		default:
+			// we cast the value to string (works with any stringers)
+			valueStr = fmt.Sprintf("%v", field.Interface())
+			isZeroValue = reflect.Zero(field.Type()).Interface() == field.Interface()
 		}
 
 		// if the omitempty option is set, we wont set any zero value

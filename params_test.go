@@ -61,6 +61,7 @@ func subTestValidStruct(t *testing.T) {
 		PointerString *string `from:"form" json:"pointer_string" params:"trim"`
 		Default       int     `from:"form" json:"default" default:"42"`
 		Emum          int     `from:"form" json:"enum" enum:"21,42"`
+		DefaultSlice  []int   `from:"form" json:"default_slice" default:"1,2,3"`
 	}
 
 	s := &strct{}
@@ -95,6 +96,7 @@ func subTestValidStruct(t *testing.T) {
 	assert.Nil(t, s.PointerBool)
 	assert.Equal(t, "pointer value", *s.PointerString)
 	assert.Equal(t, 42, s.Default)
+	assert.Equal(t, []int{1, 2, 3}, s.DefaultSlice)
 }
 
 func subTestInvalidStruct(t *testing.T) {
@@ -316,6 +318,7 @@ func subTestExtraction(t *testing.T) {
 		Ignored       int                `from:"form" json:"-"`
 		NoName        string             `from:"form"`
 		OmitEmpty     int                `from:"form" json:"omit,omitempty"`
+		Slice         []int              `from:"form" json:"slice"`
 		Unknown       string             `json:"unknown"`
 	}{
 		StringValue:         "String value",
@@ -331,6 +334,7 @@ func subTestExtraction(t *testing.T) {
 		NoName:              "not named",
 		OmitEmpty:           0,
 		Unknown:             "unknown from",
+		Slice:               []int{1, 2, 3},
 		StructWithValidator: StructWithValidator{String: "embeded"},
 	}
 
@@ -364,12 +368,14 @@ func subTestExtraction(t *testing.T) {
 	assert.Equal(t, *s.PointerString, formValue.Get("pointer_string"))
 	assert.Equal(t, strconv.Itoa(*s.PointerNumber), formValue.Get("pointer_number"))
 	assert.Equal(t, s.NoName, formValue.Get("NoName"))
-	assert.Equal(t, "", formValue.Get("omitempty"))
+	_, exists := formValue["omit"]
+	assert.False(t, exists, "omitempty should not exists")
 	assert.Empty(t, formValue.Get("nil"))
 	assert.Empty(t, formValue.Get("Ignored"))
 	d, err := date.New(formValue.Get("stringer"))
 	assert.NoError(t, err, "db.NewDate() should have succeed")
 	assert.True(t, s.Stringer.Equal(d), "The date changed from %s to %s", s.Stringer, d)
+	assert.Equal(t, []string{"1", "2", "3"}, formValue["slice"])
 
 	// Check unknown data
 	unknownValue, found := sources["unknown"]

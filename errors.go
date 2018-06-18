@@ -50,11 +50,11 @@ const (
 	ErrMsgInvalidInteger = "invalid integer"
 
 	// ErrMsgIntegerTooBig represents the error message corresponding to
-	// an integer being to big
+	// an integer being too big
 	ErrMsgIntegerTooBig = "value too high"
 
 	// ErrMsgIntegerTooSmall represents the error message corresponding to
-	// an integer being to small
+	// an integer being too small
 	ErrMsgIntegerTooSmall = "value too small"
 
 	// ErrMsgEmptyFile represents the error message corresponding to
@@ -64,4 +64,16 @@ const (
 	// ErrMsgCorruptedFile represents the error message corresponding to
 	// a corrupted file
 	ErrMsgCorruptedFile = "file seems corrupted"
+
+	// ErrMsgArrayTooBig represents the error message corresponding to
+	// an array being too big
+	ErrMsgArrayTooBig = "too many elements"
+
+	// ErrMsgArrayTooSmall represents the error message corresponding to
+	// an array being too small
+	ErrMsgArrayTooSmall = "too few elements"
+
+	// ErrMsgEmptyItem represents the error message corresponding to
+	// an array containing an empty item
+	ErrMsgEmptyItem = "array cannot contain empty items"
 )
