@@ -179,10 +179,18 @@ func (p *Params) extractRecursive(paramList reflect.Value, sources map[string]ur
 		isZeroValue := false
 		switch field.Kind() {
 		case reflect.Slice:
-			totalElems := value.Len()
-			for i := 0; i < totalElems; i++ {
-				stringValue := fmt.Sprintf("%v", value.Index(i).Interface())
-				sources[sourceType].Add(fieldName, stringValue)
+			if !value.IsNil() {
+				totalElems := value.Len()
+
+				if totalElems == 0 {
+					// We set a zero value to handle empty slices
+					sources[sourceType][fieldName] = []string{}
+				}
+
+				for i := 0; i < totalElems; i++ {
+					stringValue := fmt.Sprintf("%v", value.Index(i).Interface())
+					sources[sourceType].Add(fieldName, stringValue)
+				}
 			}
 			// special case so we return right away
 			continue

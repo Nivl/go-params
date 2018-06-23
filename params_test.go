@@ -319,6 +319,8 @@ func subTestExtraction(t *testing.T) {
 		NoName        string             `from:"form"`
 		OmitEmpty     int                `from:"form" json:"omit,omitempty"`
 		Slice         []int              `from:"form" json:"slice"`
+		NilSlice      []int              `from:"form" json:"nil_slice"`
+		EmptySlice    []int              `from:"form" json:"empty_slice"`
 		Unknown       string             `json:"unknown"`
 	}{
 		StringValue:         "String value",
@@ -335,6 +337,8 @@ func subTestExtraction(t *testing.T) {
 		OmitEmpty:           0,
 		Unknown:             "unknown from",
 		Slice:               []int{1, 2, 3},
+		EmptySlice:          []int{},
+		NilSlice:            nil,
 		StructWithValidator: StructWithValidator{String: "embeded"},
 	}
 
@@ -376,6 +380,10 @@ func subTestExtraction(t *testing.T) {
 	assert.NoError(t, err, "db.NewDate() should have succeed")
 	assert.True(t, s.Stringer.Equal(d), "The date changed from %s to %s", s.Stringer, d)
 	assert.Equal(t, []string{"1", "2", "3"}, formValue["slice"])
+	_, exists = formValue["nil_slice"]
+	assert.False(t, exists, "nil_slice should not be part of the output")
+	_, exists = formValue["empty_slice"]
+	assert.True(t, exists, "empty_slice should be part of the output")
 
 	// Check unknown data
 	unknownValue, found := sources["unknown"]

@@ -188,7 +188,6 @@ func (p *Param) setSliceValue(source url.Values, opts *Options, defaultValue str
 			if isPointer {
 				finalValue = reflect.MakeSlice(sliceType, len(values), cap(values))
 				for i, value := range values {
-					fmt.Println(i, value)
 					v := value
 					finalValue.Index(i).Set(reflect.ValueOf(&v))
 				}
