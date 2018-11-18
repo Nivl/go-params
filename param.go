@@ -3,6 +3,7 @@ package params
 import (
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -19,6 +20,12 @@ type Param struct {
 	Value *reflect.Value
 	Info  *reflect.StructField
 	Tags  *reflect.StructTag
+}
+
+var userUploadErrors = map[error]bool{
+	http.ErrMissingBoundary:      true,
+	http.ErrNotMultipart:         true,
+	multipart.ErrMessageTooLarge: true,
 }
 
 // SetFile sets the value of the param using the provided source to find the file
@@ -53,6 +60,11 @@ func (p *Param) SetFile(source formfile.FileHolder) error {
 			// if there's no file and it's not required, then we're done
 			return nil
 		}
+		// check if it failed because of a malformed request, etc.
+		if _, isUserError := userUploadErrors[err]; isUserError {
+			return perror.New(opts.Name, err.Error())
+		}
+		// system error
 		return err
 	}
 
