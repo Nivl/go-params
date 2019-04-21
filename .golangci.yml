@@ -1,0 +1,96 @@
+run:
+  deadline: 10m
+  skip-files:
+    - '.*_test.go'
+
+linters:
+  enable-all: false
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - structcheck
+    - varcheck
+    - ineffassign
+    - deadcode
+    - typecheck
+    - golint
+    - gosec
+    - interfacer
+    - unconvert
+    - gofmt
+    - goimports
+    - maligned
+    - misspell
+    - unparam
+    - nakedret
+    - prealloc
+    - scopelint
+    - gocritic
+    - gochecknoinits
+
+linters-settings:
+  gocritic:
+    enabled-checks:
+      - appendAssign
+      - codegenComment
+      - commentedOutCode
+      - deprecatedComment
+      - caseOrder
+      - dupArg
+      - dupBranchBody
+      - dupCase
+      - dupSubExpr
+      - exitAfterDefer
+      - flagDeref
+      - flagName
+      - nilValReturn
+      - weakCond
+      - assignOp
+      - boolExprSimplify
+      - builtinShadow
+      - captLocal
+      - commentFormatting
+      - commentedOutImport
+      - defaultCaseOrder
+      - docStub
+      - elseif
+      - hexLiteral
+      - ifElseChain
+      - importShadow
+      - initClause
+      - nestingReduce
+      - paramTypeCombine
+      - regexpMust
+      - singleCaseSwitch
+      - sloppyLen
+      - switchTrue
+      - typeAssertChain
+      - typeSwitchVar
+      - typeUnparen
+      - underef
+      - unlambda
+      - unnamedResult
+      - unnecessaryBlock
+      - unslice
+      - wrapperFunc
+      - yodaStyleExpr
+      - appendCombine
+      - equalFold
+      - hugeParam
+      - indexAlloc
+      - rangeExprCopy
+      - rangeValCopy
+
+issues:
+  max-same-issues: 0
+  max-per-linter: 0
+  exclude-use-default: false
+
+  exclude-rules:
+    - linters:
+        - gosec
+      text: 'G304'
