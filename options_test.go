@@ -593,7 +593,7 @@ func TestValidateFileContent(t *testing.T) {
 			`params:"image"`,
 			`invalid_magic.png`,
 			"",
-			filetype.ErrMsgUnsuportedImageFormat,
+			filetype.ErrMsgUnsupportedImageFormat,
 		},
 	}
 

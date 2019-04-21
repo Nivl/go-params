@@ -201,7 +201,7 @@ func subTestSetFileParamValidImage(t *testing.T) {
 			strct{},
 			"LICENSE",
 			"",
-			perror.New("file", filetype.ErrMsgUnsuportedImageFormat),
+			perror.New("file", filetype.ErrMsgUnsupportedImageFormat),
 		},
 		{
 			"nil pointer should work as the image is not required",
