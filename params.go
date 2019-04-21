@@ -55,10 +55,13 @@ func (p *Params) parseRecursive(paramList reflect.Value, sources map[string]url.
 
 		// Handle embedded struct
 		if value.Kind() == reflect.Struct && info.Anonymous {
-			p.parseRecursive(value, sources, fileHolder)
+			err := p.parseRecursive(value, sources, fileHolder)
+			if err != nil {
+				return err
+			}
 
-			// If there's a custom validator we'll use it
-			// Here we vall Addr() to make sure we get a pointer to the
+			// If there's a custom validator we'll use it here with
+			// val.Addr() to make sure we get a pointer to the
 			// struct. If we don't use a pointer and the IsValid() method
 			// uses a pointer, the conversion will fail
 			if validator, ok := value.Addr().Interface().(CustomValidation); ok {
@@ -105,9 +108,9 @@ func (p *Params) parseRecursive(paramList reflect.Value, sources map[string]url.
 
 // Extract extracts the data from the paramsStruct and returns them
 // as a map of url.Values
-func (p *Params) Extract() (map[string]url.Values, map[string]*formfile.FormFile) {
-	sources := map[string]url.Values{}
-	files := map[string]*formfile.FormFile{}
+func (p *Params) Extract() (sources map[string]url.Values, files map[string]*formfile.FormFile) {
+	sources = map[string]url.Values{}
+	files = map[string]*formfile.FormFile{}
 
 	if p.data == nil {
 		return sources, files
@@ -175,10 +178,7 @@ func (p *Params) extractRecursive(paramList reflect.Value, sources map[string]ur
 		}
 
 		field := reflect.Indirect(value)
-		valueStr := ""
-		isZeroValue := false
-		switch field.Kind() {
-		case reflect.Slice:
+		if field.Kind() == reflect.Slice {
 			if !value.IsNil() {
 				totalElems := value.Len()
 
@@ -194,11 +194,11 @@ func (p *Params) extractRecursive(paramList reflect.Value, sources map[string]ur
 			}
 			// special case so we return right away
 			continue
-		default:
-			// we cast the value to string (works with any stringers)
-			valueStr = fmt.Sprintf("%v", field.Interface())
-			isZeroValue = reflect.Zero(field.Type()).Interface() == field.Interface()
 		}
+
+		// we cast the value to string (works with any stringers)
+		valueStr := fmt.Sprintf("%v", field.Interface())
+		isZeroValue := reflect.Zero(field.Type()).Interface() == field.Interface()
 
 		// if the omitempty option is set, we wont set any zero value
 		if !omitempty || (omitempty && !isZeroValue) {

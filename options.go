@@ -16,13 +16,38 @@ import (
 
 // Options represent all the options for a field
 type Options struct {
-	// Ignore means the field should not been parsed
-	// json:"-"
-	Ignore bool
+	// AuthorizedValues represents the list of authorized value for this param
+	// enum:"and,or"
+	AuthorizedValues []string
+
+	// MinInt represents the minimum value accepted for an integer
+	// min_int:"1"
+	MinInt *int
+
+	// MaxInt represents the maximum value accepted for an integer
+	// max_int:"255"
+	MaxInt *int
+
+	// MaxItems represents the maximum number of values accepted by an array
+	// max_items:"10"
+	MaxItems *int
+
+	// MinItems represents the minimum number of values accepted by an array
+	// min_items:"10"
+	MinItems *int
+
+	// MaxLen represents the maximum length a param can have (under its string
+	// form). Any invalid values (including 0) will be ignored
+	// maxlen:"255"
+	MaxLen int
 
 	// Name contains the name of the field in the payload
 	// json:"my_field"
 	Name string
+
+	// Ignore means the field should not been parsed
+	// json:"-"
+	Ignore bool
 
 	// Required means the request should fail with a Bad Request if the field is missing.
 	// params:"required"
@@ -63,31 +88,6 @@ type Options struct {
 	// provided it cannot be an empty string.
 	// params:"noempty"
 	NoEmpty bool
-
-	// MaxLen represents the maximum length a param can have (under its string
-	// form). Any invalid values (including 0) will be ignored
-	// maxlen:"255"
-	MaxLen int
-
-	// AuthorizedValues represents the list of authorized value for this param
-	// enum:"and,or"
-	AuthorizedValues []string
-
-	// MinInt represents the minimum value accepted for an integer
-	// min_int:"1"
-	MinInt *int
-
-	// MaxInt represents the maximum value accepted for an integer
-	// max_int:"255"
-	MaxInt *int
-
-	// MaxItems represents the maximum number of values accepted by an array
-	// max_items:"10"
-	MaxItems *int
-
-	// MinItems represents the minimum number of values accepted by an array
-	// min_items:"10"
-	MinItems *int
 
 	// NoEmptyItems means all items of an array needs to have a value
 	//params:"no_empty_items"
@@ -299,31 +299,36 @@ func (opts *Options) Validate(value string, wasProvided, isArrayItem bool) error
 }
 
 // ValidateFileContent checks the given file passes the options set
-func (opts *Options) ValidateFileContent(file io.ReadSeeker) (string, error) {
+func (opts *Options) ValidateFileContent(file io.ReadSeeker) (mimeType string, err error) {
 	// Just for security, but it shouldn't be necessary
-	defer file.Seek(0, io.SeekStart)
+	defer func() {
+		_, seekErr := file.Seek(0, io.SeekStart)
+		if err == nil {
+			err = seekErr
+		}
+	}()
 
 	if !opts.ValidateImage {
 		// We still get the mimetype
-		mimeType, err := filetype.MimeType(file)
+		mimeType, err = filetype.MimeType(file)
 		if err != nil {
 			return "", err
 		}
 		return mimeType, nil
 	}
 
-	valid, mime, err := filetype.IsImage(file)
+	var isValid bool
+	isValid, mimeType, err = filetype.IsImage(file)
 	if err != nil {
 		if err.Error() == filetype.ErrMsgUnsupportedImageFormat {
 			return "", perror.New(opts.Name, err.Error())
 		}
 		return "", err
 	}
-	if !valid {
+	if !isValid {
 		return "", perror.New(opts.Name, ErrMsgInvalidImage)
 	}
-	// check "valid", and return an error if its not
-	return mime, nil
+	return mimeType, nil
 }
 
 // ApplyTransformations applies all the wanted transformations to the given value
