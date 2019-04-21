@@ -12,10 +12,12 @@ import (
 
 // NewMultipartData is a helper to generate multipart data that can be returned
 // by FileHolder.FormFile()
-func NewMultipartData(t *testing.T, cwd string, filename string) (*multipart.FileHeader, *os.File) {
+func NewMultipartData(t *testing.T, cwd, filename string) (header *multipart.FileHeader, file *os.File) {
+	var err error
+
 	// find and open the file
 	filePath := path.Join(cwd, "testdata", filename)
-	file, err := os.Open(filePath)
+	file, err = os.Open(filePath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +29,7 @@ func NewMultipartData(t *testing.T, cwd string, filename string) (*multipart.Fil
 	}
 
 	// build a fake header
-	header := &multipart.FileHeader{
+	header = &multipart.FileHeader{
 		Filename: filename,
 		Size:     stat.Size(),
 	}
@@ -35,7 +37,7 @@ func NewMultipartData(t *testing.T, cwd string, filename string) (*multipart.Fil
 }
 
 // NewFormFile is a helper to create a formfile that can be used in a param struct
-func NewFormFile(t *testing.T, cwd string, filename string) *formfile.FormFile {
+func NewFormFile(t *testing.T, cwd, filename string) *formfile.FormFile {
 	header, f := NewMultipartData(t, cwd, filename)
 
 	mime, err := filetype.MimeType(f)
