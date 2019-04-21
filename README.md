@@ -1,6 +1,6 @@
 # Params options
 
-[![Build Status](https://travis-ci.org/Nivl/go-params.svg)](https://travis-ci.org/Nivl/go-params)
+[![Actions Status](https://wdp9fww0r9.execute-api.us-west-2.amazonaws.com/production/badge/Nivl/go-params)](https://wdp9fww0r9.execute-api.us-west-2.amazonaws.com/production/results/Nivl/go-params)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nivl/go-params)](https://goreportcard.com/report/github.com/nivl/go-params)
 [![codecov](https://codecov.io/gh/Nivl/go-params/branch/master/graph/badge.svg)](https://codecov.io/gh/Nivl/go-params)
 [![GoDoc](https://godoc.org/github.com/Nivl/go-params?status.svg)](https://godoc.org/github.com/Nivl/go-params)
